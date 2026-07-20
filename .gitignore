@@ -1,0 +1,29 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# IDE settings
+.idea/
+
+# OS and editor
+.DS_Store
+*.swp
+*.swo
+
+# Logs and temp
+*.log
+tmp/
+temp/
+
+# Skill runtime caches (never commit)
+**/local-cache/
+
+# Gradle / Kotlin build output
+.gradle/
+build/
+out/
+*.iml
+
+# IntelliJ Platform Gradle Plugin cache (downloaded IDE artifacts, sandbox)
+.intellijPlatform/

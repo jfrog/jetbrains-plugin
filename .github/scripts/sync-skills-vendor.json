@@ -1,0 +1,7 @@
+{
+  "repo": "jfrog/jfrog-skills",
+  "pin": "v0.20.0",
+  "mappings": [
+    { "from": "skills", "to": ".junie/skills" }
+  ]
+}

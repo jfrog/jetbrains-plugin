@@ -1,0 +1,47 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <id>com.jfrog.jetbrains</id>
+    <name>JFrog</name>
+    <vendor email="devrel@jfrog.com" url="https://jfrog.com">JFrog Ltd.</vendor>
+    <description><![CDATA[
+        <p>Official JFrog plugin for JetBrains IDEs.</p>
+        <p>Ships the JFrog Platform Agent Skills bundle - discovered by Junie from
+        <code>.junie/skills/</code> - plus JFrog tools (Artifactory search, Xray
+        security scanning, AI Catalog package safety checks) contributed to the
+        IDE's built-in MCP server.</p>
+    ]]></description>
+
+    <!-- Generic platform dependency only (no IDE-specific module) so this
+         plugin installs across the whole JetBrains family, not just IntelliJ
+         IDEA - see design decision in the approved plan. -->
+    <depends>com.intellij.modules.platform</depends>
+
+    <!-- Bundled plugin providing the IDE's built-in MCP server; required by
+         the mcpTool extensions below. -->
+    <depends>com.intellij.mcpServer</depends>
+
+    <!-- Optional: only loads jfrog-junie.xml when Junie is installed. Kept
+         optional (not a hard <depends>) deliberately - unlike the mcpServer
+         dependency above, we could not confirm Junie's plugin id
+         (org.jetbrains.junie) against a real installed build, and a wrong
+         *required* id would silently break the whole plugin for everyone.
+         See CONTRIBUTING.md "Known open risk". -->
+    <depends optional="true" config-file="jfrog-junie.xml">org.jetbrains.junie</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup id="JFrog" displayType="BALLOON"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="com.intellij.mcpServer">
+        <mcpToolset implementation="com.jfrog.jetbrains.mcp.JfrogToolset"/>
+    </extensions>
+
+    <actions>
+        <action id="com.jfrog.jetbrains.ConfigureJfrogMcp"
+                class="com.jfrog.jetbrains.actions.ConfigureJfrogMcpAction"
+                text="Configure JFrog MCP..."
+                description="Copy the JFrog MCP server config and open Settings - fallback if the native mcpTool contribution above isn't picked up automatically">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
