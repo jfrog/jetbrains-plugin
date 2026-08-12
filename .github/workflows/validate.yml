@@ -15,6 +15,18 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # VERSION at the repo root is the release source of truth (see .github/workflows/release.yml).
+      # Catch drift here so a PR cannot merge with the two files disagreeing.
+      - name: Check VERSION matches gradle.properties
+        run: |
+          set -euo pipefail
+          FILE_VERSION=$(tr -d '[:space:]' < VERSION)
+          GRADLE_VERSION=$(grep -E '^version[[:space:]]*=' gradle.properties | sed -E 's/^version[[:space:]]*=[[:space:]]*//')
+          if [ "$FILE_VERSION" != "$GRADLE_VERSION" ]; then
+            echo "::error::VERSION ($FILE_VERSION) does not match gradle.properties version ($GRADLE_VERSION) — sync them"
+            exit 1
+          fi
+
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
