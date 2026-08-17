@@ -37,7 +37,19 @@ Skill content is vendored under `.junie/skills/` - see [VENDOR.md](VENDOR.md).
 | `jfrog_xray_security_scan` | Run an Xray / Advanced Security scan and summarize findings. |
 | `jfrog_ai_catalog_lookup` | Check package safety/curation via the JFrog AI Catalog. |
 
-These are implemented as suspend functions on a single `JfrogToolset` (see [`src/main/kotlin/com/jfrog/jetbrains/mcp/JfrogToolset.kt`](src/main/kotlin/com/jfrog/jetbrains/mcp/JfrogToolset.kt)), registered via `<extensions defaultExtensionNs="com.intellij.mcpServer"><mcpToolset implementation="..."/></extensions>` in [`plugin.xml`](src/main/resources/META-INF/plugin.xml) - the same pattern the platform's own bundled toolsets use. Bodies are stubs (`TODO`) pending the JFrog API wiring - see [CONTRIBUTING.md](CONTRIBUTING.md).
+These are implemented as `@McpTool`-annotated suspend functions on a single `JfrogToolset` (see [`src/main/kotlin/com/jfrog/jetbrains/mcp/JfrogToolset.kt`](src/main/kotlin/com/jfrog/jetbrains/mcp/JfrogToolset.kt)), registered via `<extensions defaultExtensionNs="com.intellij.mcpServer"><mcpToolset implementation="..."/></extensions>` in [`plugin.xml`](src/main/resources/META-INF/plugin.xml) - the same pattern the platform's own bundled toolsets use. The `@McpTool` annotation is required: the IDE only exposes annotated methods. Bodies are stubs (`TODO`) pending the JFrog API wiring - see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+### Using the tools in Junie
+
+The IDE's MCP server treats Junie as an external client, so it must be pointed at the server once - the tools do **not** appear automatically:
+
+1. **Settings → Tools → MCP Server** → check **Enable MCP Server**.
+2. In **Clients Auto-Configuration**, find the **Junie** row and click **Auto-Configure** (it should flip from "Not configured"). Apply.
+3. Start a Junie task - the tools now appear as `mcp_idea_jfrog_artifactory_search`, `mcp_idea_jfrog_xray_security_scan`, and `mcp_idea_jfrog_ai_catalog_lookup`.
+
+By default these tools are **router-only** (reached through the universal `execute_tool` router, not listed individually), which keeps their descriptions out of the agent's context until needed - the accompanying JFrog skills tell Junie when to call them. To list them by name instead, clear the **Router-only** checkbox for each under **Settings → Tools → MCP Server → Exposed Tools**.
+
+> Validated on IntelliJ IDEA 2026.2 (build 262) with Junie installed.
 
 ## Prerequisites
 
@@ -58,6 +70,20 @@ or build a distributable zip and install it via **Settings | Plugins | ⚙ | Ins
 ./gradlew buildPlugin
 ```
 
+## Publishing to JetBrains Marketplace
+
+Publishing is signed + token-based via the IntelliJ Platform Gradle Plugin. Run it locally or from CI (the [`Publish to JetBrains Marketplace`](.github/workflows/publish-marketplace.yml) `workflow_dispatch` workflow):
+
+```bash
+export PUBLISH_TOKEN=...          # Marketplace token
+export CERTIFICATE_CHAIN="$(cat chain.crt)"
+export PRIVATE_KEY="$(cat private.pem)"
+export PRIVATE_KEY_PASSWORD=...   # if the key has one
+./gradlew publishPlugin           # signs, then uploads to the "default" channel
+```
+
+Requires the four secrets (`PUBLISH_TOKEN`, `CERTIFICATE_CHAIN`, `PRIVATE_KEY`, `PRIVATE_KEY_PASSWORD`) set in **Settings → Secrets and variables → Actions**. Compatibility range, signing, and publishing behavior live in [`build.gradle.kts`](build.gradle.kts).
+
 ## Repository layout
 
 ```
@@ -75,10 +101,20 @@ jetbrains-plugin/
 └── VENDOR.md
 ```
 
-## Validate locally
+## Check it locally
 
 ```bash
-node scripts/validate-jetbrains-plugin.mjs
+node scripts/validate-jetbrains-plugin.mjs   # fast: manifest + skills layout
+./gradlew verifyPlugin                        # plugin structure + compatibility checks
+./gradlew buildPlugin                         # produces build/distributions/*.zip
+./gradlew runIde                              # launches a sandbox IDE with the plugin installed
+```
+
+To confirm the Marketplace-facing config before publishing:
+
+```bash
+./gradlew verifyPluginProjectConfiguration    # flags sinceBuild/until-build/signing issues
+./gradlew signPlugin                          # dry-run the signing step (needs the signing env vars)
 ```
 
 ## Versioning

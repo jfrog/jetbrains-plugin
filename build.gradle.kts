@@ -29,6 +29,33 @@ dependencies {
 }
 
 intellijPlatform {
+    pluginConfiguration {
+        version = providers.gradleProperty("version")
+
+        ideaVersion {
+            // 2025.2 (build 252) is the floor: the plugin needs the IDE's built-in
+            // com.intellij.mcpServer. Upper bound covers current org IDEs (2026.2 =
+            // build 262); the McpToolset/@McpTool API is stable across 252..262.
+            sinceBuild = "252"
+            untilBuild = "262.*"
+        }
+    }
+
+    // Marketplace requires signed plugins; signPlugin runs before publishPlugin when
+    // these env vars are set, and is skipped for a plain local buildPlugin.
+    signing {
+        certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
+        privateKey = providers.environmentVariable("PRIVATE_KEY")
+        password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
+    }
+
+    // publishPlugin uploads to Marketplace with a personal token; the first version
+    // must be uploaded manually via the web UI before token publishing works.
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN")
+        channels = listOf("default")
+    }
+
     pluginVerification {
         ides {
             current()

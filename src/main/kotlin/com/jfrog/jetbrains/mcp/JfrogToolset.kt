@@ -5,6 +5,8 @@
 package com.jfrog.jetbrains.mcp
 
 import com.intellij.mcpserver.McpToolset
+import com.intellij.mcpserver.annotations.McpDescription
+import com.intellij.mcpserver.annotations.McpTool
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -25,15 +27,14 @@ data class AiCatalogLookupResult(
 // JFrog tools contributed to the IDE's built-in MCP server, registered via
 // the com.intellij.mcpServer.mcpToolset extension point in plugin.xml.
 //
-// Confirmed against the real mcpserver.jar bundled with IntelliJ 2025.2.6.2
-// (package com.intellij.mcpserver, McpToolset marker interface - NOT an
-// AbstractMcpTool base class, which only exists in the older, deprecated
-// standalone marketplace plugin). Each public suspend fun below becomes an
-// MCP tool automatically via reflection (see McpToolsProvider /
-// ReflectionCallableMcpTool in mcpserver.jar); the function name (snake_case
+// Registration rule (confirmed against the real mcpserver.jar bundled with
+// IntelliJ 2025.2.6.2): only methods annotated with @McpTool are exposed -
+// see ToolsetReflection_utilKt.getImplementedMethods, which filters on that
+// annotation. A bare public suspend fun is NOT enough. @McpDescription on the
+// method and on each parameter feeds the tool/parameter descriptions in the
+// generated JSON schema. The function name becomes the tool name (snake_case
 // by platform convention, matching the bundled FileToolset/ExecutionToolset/
-// CodeInsightToolset examples) becomes the tool name, and its parameters
-// become the tool's JSON schema.
+// CodeInsightToolset examples).
 //
 // NOT YET WIRED (spike item - see CONTRIBUTING.md "Known open risk"):
 // - Each method needs the real JFrog API call using JFROG_URL/
@@ -46,18 +47,30 @@ data class AiCatalogLookupResult(
 //   mcpserver.jar bundled with the target IDE for the reference pattern
 //   before wiring real logic here.
 class JfrogToolset : McpToolset {
-    suspend fun jfrog_artifactory_search(query: String, repository: String? = null): ArtifactorySearchResult {
+    @McpTool
+    @McpDescription("Search JFrog Artifactory for artifacts matching a query, optionally scoped to a repository.")
+    suspend fun jfrog_artifactory_search(
+        @McpDescription("Search term - artifact name or path fragment") query: String,
+        @McpDescription("Optional repository key to scope the search") repository: String? = null,
+    ): ArtifactorySearchResult {
         TODO("Wire to the JFrog Platform REST/AQL API")
     }
 
-    suspend fun jfrog_xray_security_scan(target: String, includeLicenses: Boolean = false): XraySecurityScanResult {
+    @McpTool
+    @McpDescription("Run a JFrog Xray / Advanced Security scan on a target and return its findings.")
+    suspend fun jfrog_xray_security_scan(
+        @McpDescription("Scan target - build name, artifact path, or repository key") target: String,
+        @McpDescription("Include license findings in addition to vulnerabilities") includeLicenses: Boolean = false,
+    ): XraySecurityScanResult {
         TODO("Wire to the JFrog Xray / Advanced Security API")
     }
 
+    @McpTool
+    @McpDescription("Check whether a package version is allowed via the JFrog AI Catalog / curation policy.")
     suspend fun jfrog_ai_catalog_lookup(
-        packageName: String,
-        ecosystem: String,
-        version: String? = null,
+        @McpDescription("Package name to look up") packageName: String,
+        @McpDescription("Package ecosystem, e.g. npm, pypi, maven, go") ecosystem: String,
+        @McpDescription("Optional specific version to check") version: String? = null,
     ): AiCatalogLookupResult {
         TODO("Wire to the JFrog AI Catalog / curation API")
     }
