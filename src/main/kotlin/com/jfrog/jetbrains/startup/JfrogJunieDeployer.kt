@@ -17,19 +17,12 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.zip.ZipInputStream
 
-// Materializes the bundled JFrog assets into the user's global Junie home
-// (~/.junie) on IDE startup, matching how the Cursor/Claude/Codex plugins
-// ship the same skills + JFrog MCP entry - here through plugin code because a
-// compiled JetBrains plugin can't drop files into place the way a file-based
-// plugin does.
-//
-//   ~/.junie/skills/       <- the vendored jfrog-skills bundle (see VENDOR.md)
-//   ~/.junie/mcp/mcp.json  <- a "jfrog" remote MCP server entry (merged, not
-//                             clobbered, so Junie's own "idea" entry survives)
-//
-// Junie discovers both by convention: skills from .junie/skills/, MCP servers
-// from .junie/mcp/mcp.json (a url entry is supported here, unlike the AI
-// Assistant "MCP Server" settings page - see ConfigureJfrogMcpAction).
+// Materializes the bundled JFrog assets into the user's Junie home (~/.junie) on
+// IDE startup - a compiled plugin can't drop files in place like the file-based
+// Cursor/Claude/Codex plugins, so it writes them here (Junie discovers both by
+// convention):
+//   ~/.junie/skills/       <- vendored jfrog-skills bundle (see VENDOR.md)
+//   ~/.junie/mcp/mcp.json  <- a "jfrog" MCP entry (merged, keeping other servers)
 class JfrogJunieDeployer : ProjectActivity {
     override suspend fun execute(project: Project) {
         try {
@@ -37,17 +30,15 @@ class JfrogJunieDeployer : ProjectActivity {
             deploySkills(junieHome.resolve("skills"))
             deployMcpServer(junieHome.resolve("mcp").resolve("mcp.json"))
         } catch (t: Throwable) {
-            // Never let a failed deploy break IDE startup - the manual
-            // "Configure JFrog MCP..." action remains as a fallback.
+            // Never let a failed deploy break IDE startup; the user can still
+            // configure ~/.junie manually (see README "How delivery works").
             LOG.warn("Failed to deploy JFrog assets into ~/.junie", t)
         }
     }
 
-    // Unpacks the bundled skills zip into ~/.junie/skills/. A version marker
-    // makes this a no-op once the current plugin version has been deployed, so
-    // it doesn't re-extract on every project open. Each JFrog skill directory
-    // is removed before extraction so upstream deletions don't leave stale files
-    // behind; other (non-JFrog) skills in the same folder are left untouched.
+    // Unpacks the bundled skills zip into ~/.junie/skills/. A version marker keeps
+    // it a no-op until the plugin version changes. Each JFrog skill dir is wiped
+    // first so upstream deletions don't leave stale files; other skills are kept.
     private fun deploySkills(skillsDir: Path) {
         val marker = skillsDir.resolve(MARKER_FILE)
         if (Files.exists(marker) && runCatching { Files.readString(marker).trim() }.getOrNull() == pluginVersion) {
@@ -87,10 +78,8 @@ class JfrogJunieDeployer : ProjectActivity {
         LOG.info("Deployed JFrog skills (v$pluginVersion) to $skillsDir")
     }
 
-    // Adds/updates a "jfrog" entry in ~/.junie/mcp/mcp.json, preserving any
-    // other servers already configured (e.g. Junie's own "idea" entry). The
-    // host is resolved from JFROG_PLATFORM_URL; if it isn't set we don't
-    // overwrite an already-good entry with a placeholder.
+    // Adds/updates the "jfrog" entry in ~/.junie/mcp/mcp.json, preserving other
+    // servers and never overwriting an existing good entry with a placeholder.
     private fun deployMcpServer(mcpFile: Path) {
         val host = resolvePlatformHost()
         val url = if (host != null) "$host/mcp" else "https://$PLATFORM_URL_PLACEHOLDER/mcp"
@@ -114,11 +103,9 @@ class JfrogJunieDeployer : ProjectActivity {
         LOG.info("Configured JFrog MCP server in $mcpFile (url=$url)")
     }
 
-    // Resolve the JFrog platform host. Prefer JFROG_PLATFORM_URL, but a GUI IDE
-    // launched from the Dock/Finder does NOT inherit the shell environment, so
-    // fall back to the JFrog CLI config the user has already set up. We read
-    // ~/.jfrog/jfrog-cli.conf.v* directly rather than shelling out to `jf`,
-    // which may not be on the IDE process's PATH either.
+    // Prefer JFROG_PLATFORM_URL, else the jf CLI config (a GUI-launched IDE
+    // doesn't inherit the shell env). We read the config file directly since
+    // `jf` may not be on the IDE's PATH.
     private fun resolvePlatformHost(): String? {
         val env = System.getenv("JFROG_PLATFORM_URL")
         if (!env.isNullOrBlank()) return normalizeHost(env)
@@ -132,9 +119,7 @@ class JfrogJunieDeployer : ProjectActivity {
         return if (h.startsWith("http://") || h.startsWith("https://")) h else "https://$h"
     }
 
-    // Read the default server's URL from the highest-versioned
-    // ~/.jfrog/jfrog-cli.conf.v* file (plain JSON). Falls back to the first
-    // server if none is flagged default. Only the `url` is read.
+    // Read the host from the highest-versioned ~/.jfrog/jfrog-cli.conf.v* (JSON).
     private fun hostFromJfrogCliConfig(): String? {
         val jfrogDir = Path.of(System.getProperty("user.home"), ".jfrog")
         if (!Files.isDirectory(jfrogDir)) return null
@@ -146,10 +131,13 @@ class JfrogJunieDeployer : ProjectActivity {
         val root = runCatching { JsonParser.parseString(Files.readString(conf)).asJsonObject }.getOrNull() ?: return null
         val servers = root.getAsJsonArray("servers") ?: return null
         if (servers.size() == 0) return null
-        val server = (0 until servers.size())
-            .map { servers[it].asJsonObject }
-            .firstOrNull { it.get("isDefault")?.asBoolean == true }
-            ?: servers[0].asJsonObject
+        val serverObjs = (0 until servers.size()).map { servers[it].asJsonObject }
+        // One server is unambiguous; otherwise prefer the default, then the first.
+        val server = if (serverObjs.size == 1) {
+            serverObjs[0]
+        } else {
+            serverObjs.firstOrNull { it.get("isDefault")?.asBoolean == true } ?: serverObjs[0]
+        }
         val url = server.get("url")?.asString ?: return null
         return normalizeHost(url)
     }

@@ -1,44 +1,23 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <id>com.jfrog.jetbrains</id>
-    <name>JFrog IntelliJ Plugin</name>
+    <name>JFrog for Coding Agents</name>
     <vendor email="devrel@jfrog.com" url="https://jfrog.com">JFrog Ltd.</vendor>
     <description><![CDATA[
         <p>Official JFrog plugin for JetBrains IDEs.</p>
-        <p>Ships the JFrog Platform Agent Skills bundle - discovered by Junie from
-        <code>.junie/skills/</code> - plus JFrog tools (Artifactory search, Xray
-        security scanning, AI Catalog package safety checks) contributed to the
-        IDE's built-in MCP server.</p>
+        <p>Delivers the JFrog Platform Agent Skills bundle and a JFrog (remote)
+        MCP server to <a href="https://www.jetbrains.com/junie/">Junie</a> on IDE
+        startup - discovered by convention from <code>~/.junie/skills/</code> and
+        <code>~/.junie/mcp/mcp.json</code>.</p>
     ]]></description>
 
-    <!-- Generic platform dependency only (no IDE-specific module) so this
-         plugin installs across the whole JetBrains family, not just IntelliJ
-         IDEA - see design decision in the approved plan. -->
+    <!-- Generic platform dependency only (no IDE-specific module) so the plugin
+         installs across the whole JetBrains family, not just IntelliJ IDEA. -->
     <depends>com.intellij.modules.platform</depends>
 
-    <!-- Bundled plugin providing the IDE's built-in MCP server; required by
-         the mcpTool extensions below. -->
-    <depends>com.intellij.mcpServer</depends>
-
     <extensions defaultExtensionNs="com.intellij">
-        <notificationGroup id="JFrog" displayType="BALLOON"/>
-
-        <!-- Materializes the bundled JFrog skills + JFrog MCP entry into the
-             user's ~/.junie/ on startup, so Junie picks them up by convention
-             (the same skills + MCP the Cursor/Claude/Codex plugins ship). -->
+        <!-- Writes the bundled JFrog skills + MCP entry into ~/.junie/ on
+             startup, so Junie picks them up by convention. -->
         <postStartupActivity implementation="com.jfrog.jetbrains.startup.JfrogJunieDeployer"/>
     </extensions>
-
-    <extensions defaultExtensionNs="com.intellij.mcpServer">
-        <mcpToolset implementation="com.jfrog.jetbrains.mcp.JfrogToolset"/>
-    </extensions>
-
-    <actions>
-        <action id="com.jfrog.jetbrains.ConfigureJfrogMcp"
-                class="com.jfrog.jetbrains.actions.ConfigureJfrogMcpAction"
-                text="Configure JFrog MCP..."
-                description="Copy the JFrog MCP server config and open Settings - fallback if the native mcpTool contribution above isn't picked up automatically">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
-        </action>
-    </actions>
 </idea-plugin>

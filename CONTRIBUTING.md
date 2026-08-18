@@ -1,4 +1,4 @@
-# Contributing to JFrog JetBrains Plugin
+# Contributing to JFrog for Coding Agents
 
 Thank you for your interest in contributing! This project is maintained by JFrog and licensed under the [Apache License 2.0](LICENSE).
 
@@ -6,29 +6,9 @@ Thank you for your interest in contributing! This project is maintained by JFrog
 
 All contributors must sign the [JFrog CLA](https://jfrog.com/cla/) before contributions can be merged into the official `jfrog/jetbrains-plugin` repository. A CLA check runs automatically on pull requests when CI is enabled — follow the prompts to sign if you haven't already.
 
-## Known open risk
+## Validate in a real IDE, not the `runIde` sandbox
 
-This is the single most important thing to know before working on this repo.
-
-`./gradlew buildPlugin` **succeeds** — the `McpToolset`/`bundledPlugin`/extension-point wiring below was confirmed against a real build, not just documentation:
-
-- `com.intellij.mcpserver` (lowercase — note the casing) is the real package inside the plugin bundled with the IDE (plugin id `com.intellij.mcpServer`, confirmed by decompiling `plugins/mcpserver/lib/mcpserver.jar` from a downloaded `intellijIdea("2025.2.6.2")` distribution). It is a *different, incompatible* API from the older, deprecated standalone Marketplace plugin of the same id — that older one is what most public blog posts/demo plugins (including the one this repo initially copied) show, and it uses an `AbstractMcpTool`/`<mcpTool>` shape that does not exist in the bundled version. Declare the dependency as `bundledPlugin("com.intellij.mcpServer")` in `build.gradle.kts`, **not** `plugin("com.intellij.mcpServer", "<version>")` (the latter resolves the old deprecated artifact).
-- The real shape: implement the `com.intellij.mcpserver.McpToolset` marker interface, write plain public `suspend fun` methods (snake_case name = tool name, via reflection — see `JfrogToolset.kt`), and register the class via `<extensions defaultExtensionNs="com.intellij.mcpServer"><mcpToolset implementation="..."/></extensions>` in `plugin.xml`. This matches the platform's own bundled toolsets (`FileToolset`, `ExecutionToolset`, `CodeInsightToolset`, etc. in the same jar) byte-for-byte in shape.
-
-**Still genuinely unconfirmed** (needs a live JetBrains IDE + Junie session — can't be validated from a headless build):
-
-1. Whether tools registered this way are automatically visible to **Junie's own tool-calling**, or whether they only reach *external* MCP clients that connect to the IDE's built-in MCP server. This is the crux of the original design question and still needs a live check.
-2. How a toolset method obtains the current `Project` — none of the bundled toolsets take it as a parameter (confirmed via `javap`), so it's resolved ambiently, likely via coroutine context. Decompile `com.intellij.mcpserver.toolsets.general.CodeInsightToolset` (same jar) for the real accessor before wiring actual JFrog API calls into `JfrogToolset.kt`.
-3. Junie's plugin id. A real installed Junie (build 252.819.54) registers the single `plugins/ej` install under **two** main descriptors — `org.jetbrains.junie` *and* `org.jetbrains.plugins.junie`. Because of this, an earlier optional `<depends config-file="jfrog-junie.xml">org.jetbrains.junie</depends>` (which pointed at an empty config file) has been **removed**: it was dead weight and a plausible aggravator of a `runIde`-sandbox `loader constraint violation` on Junie's `matterhorn.core` module (two classloaders for the one plugin). If Junie-specific `plugin.xml` wiring is ever needed, reintroduce it against a **confirmed** id verified from the two descriptors above — do not guess.
-
-   **Validate Junie in a real IDE, not the `runIde` sandbox.** Junie's double-descriptor packaging triggers the classloader violation above when side-loaded into a dev sandbox (its LLM call fails), even though the JFrog MCP + skills deliver and authenticate fine. Install the `buildPlugin` zip into a real IntelliJ + Junie for end-to-end checks.
-
-**Before shipping a real release:**
-
-1. Run `./gradlew runIde` (or install the `buildPlugin` zip) in a real JetBrains IDE with Junie.
-2. Open Junie chat and check whether `jfrog_artifactory_search` / `jfrog_xray_security_scan` / `jfrog_ai_catalog_lookup` show up as callable tools.
-3. If they don't: the `Tools | Configure JFrog MCP...` action (see `actions/ConfigureJfrogMcpAction.kt`) is the documented fallback — confirm it actually gets JFrog's tools working via the manual Settings path instead, and treat that as the primary path until Junie visibility is confirmed.
-4. Resolve the `Project`-access pattern (point 2 above) and wire the three `TODO()` bodies in `JfrogToolset.kt` to the real JFrog APIs.
+Junie's double-descriptor packaging (a single install registered under both `org.jetbrains.junie` and `org.jetbrains.plugins.junie`) triggers a `loader constraint violation` when side-loaded into the `runIde` dev sandbox — its LLM call fails there, even though the JFrog MCP + skills deliver and authenticate fine. For end-to-end checks, install the `buildPlugin` zip into a **real** IntelliJ + Junie rather than relying on the sandbox.
 
 ## How to Contribute
 
@@ -64,21 +44,19 @@ This downloads the pinned upstream tarball and replaces `.junie/skills/`. Commit
 ## Pre-release checklist
 
 - [ ] `node scripts/validate-jetbrains-plugin.mjs` passes.
-- [ ] `./gradlew buildPlugin` succeeds against a real IntelliJ Platform Gradle sync (see "Known open risk" above).
+- [ ] `./gradlew buildPlugin` succeeds against a real IntelliJ Platform Gradle sync.
 - [ ] Version bumped in [`gradle.properties`](gradle.properties) when the plugin changes.
 - [ ] No secrets, credentials, or files under `**/local-cache/` committed.
 - [ ] If the skill tree changed: `pin` in `.github/scripts/sync-skills-vendor.json` matches the upstream tag the new tree was generated from.
-- [ ] Smoke-test: `./gradlew runIde`, confirm skills + MCP tools surface in Junie (or the fallback action works).
+- [ ] Smoke-test: install the `buildPlugin` zip in a real IDE, confirm the JFrog skills + JFrog MCP surface in Junie.
 
 ## Build order
 
 Releases follow a fixed sequence:
 
-1. **Skills** — `.junie/skills/` bundle vendored from `jfrog/jfrog-skills`.
-2. **MCP tools** — native `mcpTool` contribution to the IDE's built-in MCP server (pending validation — see "Known open risk").
-3. **Marketplace publish** — once (1) and (2) are validated against a real Junie build.
-
-Do not merge Marketplace-publish tooling before (1) and (2) are validated.
+1. **Skills** — `.junie/skills/` bundle vendored from `jfrog/jfrog-skills`, delivered to `~/.junie/` on startup.
+2. **JFrog (remote) MCP** — the `jfrog` server entry merged into `~/.junie/mcp/mcp.json`.
+3. **Marketplace publish** — once (1) and (2) are validated against a real Junie build, via the [`Publish to JetBrains Marketplace`](.github/workflows/publish-marketplace.yml) workflow (see the README "Publishing to JetBrains Marketplace" section).
 
 ## Reporting Issues
 

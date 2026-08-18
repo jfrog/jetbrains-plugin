@@ -1,16 +1,12 @@
-# JFrog Plugin for JetBrains IDEs
+# JFrog for Coding Agents
 
-JFrog plugin for JetBrains IDEs (IntelliJ IDEA, PyCharm, WebStorm, GoLand, Rider, and others): artifact management, security scanning, supply-chain best practices, and Agent Guard for [Junie](https://www.jetbrains.com/junie/) — plus JFrog tools exposed through the IDE's built-in MCP server.
+JFrog plugin for JetBrains IDEs (IntelliJ IDEA, PyCharm, WebStorm, GoLand, Rider, and others). It delivers the JFrog Agent Skills bundle and a JFrog (remote) MCP server to [Junie](https://www.jetbrains.com/junie/) — artifact management, security scanning, supply-chain best practices, and Agent Guard for MCP governance.
 
-> **Status:** the JFrog skills bundle and the JFrog (remote) MCP server are delivered to Junie automatically on IDE startup. The IDE-native MCP tools (`JfrogToolset`) are still stubs. Not yet published to JetBrains Marketplace — see [CONTRIBUTING.md](CONTRIBUTING.md) for what's confirmed vs. what still needs validating.
-
-## What's new
-
-- **Auto-delivery to Junie.** On IDE startup the plugin materializes the JFrog skills and a JFrog MCP server entry into `~/.junie/` — no manual copying. See [How delivery works](#how-delivery-works).
+> **Status:** the JFrog skills bundle and the JFrog (remote) MCP server are delivered to Junie automatically on IDE startup. Not yet published to JetBrains Marketplace — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Scope
 
-This plugin targets **Junie**, JetBrains' native coding agent, specifically. IntelliJ's AI Assistant chat also lets you drive external agents (Claude Agent, Codex, Gemini CLI) via the Agent Client Protocol — those are out of scope here and manage their own configuration independently. If you want JFrog tooling in one of those, install [`claude-plugin`](https://github.com/jfrog/claude-plugin) / [`codex-plugin`](https://github.com/jfrog/codex-plugin) into that tool directly, the same way you would outside IntelliJ.
+This plugin targets **Junie**, JetBrains' native coding agent, specifically. IntelliJ's AI Assistant chat also lets you drive external agents (Claude Agent, Codex, Gemini CLI) via the Agent Client Protocol — those are out of scope here and manage their own configuration independently. If you want JFrog tooling in one of those, install [`claude-plugin`](https://github.com/jfrog/claude-plugin) / [`codex-plugin`](https://github.com/jfrog/codex-plugin) into that tool directly.
 
 ## Features
 
@@ -20,7 +16,6 @@ This plugin targets **Junie**, JetBrains' native coding agent, specifically. Int
 | **Skill** | Package safety & download | Check whether npm, Maven, PyPI, Go, and other packages are safe, curated, or allowed, then download them through Artifactory remote caches or curation-aware package managers. |
 | **Skill** | Agent Guard | Manage MCPs through the JFrog Agent Guard — discover, install, configure, update, and remove MCP servers from the JFrog AI Catalog approved for your project. |
 | **MCP (remote)** | JFrog MCP server | The remote JFrog MCP server (OAuth, no API keys), auto-added to Junie's `~/.junie/mcp/mcp.json`. See [How delivery works](#how-delivery-works). |
-| **MCP tools (IDE-native, preview)** | Artifactory search, Xray scan, AI Catalog lookup | Contributed to the IDE's built-in MCP server via `com.intellij.mcpServer`. Bodies are stubs pending the JFrog API wiring — see [MCP tools](#mcp-tools-ide-native-preview). |
 
 ## Prerequisites
 
@@ -57,7 +52,16 @@ Because a compiled JetBrains plugin can't drop files into place the way the file
 
 Junie discovers both by convention (skills from `.junie/skills/`, MCP servers from `.junie/mcp/mcp.json`). The first JFrog MCP call in Junie triggers a one-time browser **OAuth** login.
 
-**Host resolution.** The `jfrog` URL host comes from `JFROG_PLATFORM_URL`; if that isn't set (common for IDEs launched from the Dock/Finder, which don't inherit your shell env), it falls back to the default server in your JFrog CLI config (`~/.jfrog/jfrog-cli.conf.v*`). Only if neither is available is a `<JFROG_PLATFORM_URL>` placeholder written — in that case set the variable (or run `jf config add`) and restart the IDE, or edit `~/.junie/mcp/mcp.json` directly. The **Tools | Configure JFrog MCP...** action remains as a manual fallback.
+**Host resolution.** The `jfrog` URL host is resolved in this order:
+
+1. The **`JFROG_PLATFORM_URL`** environment variable, if set.
+2. Otherwise your **JFrog CLI config** (`~/.jfrog/jfrog-cli.conf.v*`): the server marked default, or — if only one server is configured — that single server.
+3. If neither is available, the placeholder `https://<JFROG_PLATFORM_URL>/mcp` is written.
+
+**If the placeholder was written** (the host couldn't be resolved automatically), you must set it yourself — the plugin does not guess. Either:
+
+- set `JFROG_PLATFORM_URL` (or run `jf config add`) and **restart the IDE** so the plugin fills it in on next startup, **or**
+- edit `~/.junie/mcp/mcp.json` directly, replace `<JFROG_PLATFORM_URL>` with your instance host (e.g. `mycompany.jfrog.io`), and restart the IDE.
 
 ## Skills
 
@@ -85,29 +89,12 @@ Once the IDE has started (and OAuth is completed on first use), interact with th
 | "Remove the Slack MCP server." | Removes the server and its stored credentials. |
 | "Is `lodash@4.17.21` safe to install?" | Checks JFrog Public Catalog signals and curation policy. |
 
-## MCP tools (IDE-native, preview)
+## Troubleshooting
 
-Separately from the remote JFrog MCP server above, the plugin also contributes tools to the **IDE's own** built-in MCP server:
-
-| Tool | Description |
-| --- | --- |
-| `jfrog_artifactory_search` | Search Artifactory for artifacts, builds, or packages. |
-| `jfrog_xray_security_scan` | Run an Xray / Advanced Security scan and summarize findings. |
-| `jfrog_ai_catalog_lookup` | Check package safety/curation via the JFrog AI Catalog. |
-
-These are implemented as `@McpTool`-annotated suspend functions on a single `JfrogToolset` (see [`src/main/kotlin/com/jfrog/jetbrains/mcp/JfrogToolset.kt`](src/main/kotlin/com/jfrog/jetbrains/mcp/JfrogToolset.kt)), registered via `<extensions defaultExtensionNs="com.intellij.mcpServer"><mcpToolset implementation="..."/></extensions>` in [`plugin.xml`](src/main/resources/META-INF/plugin.xml). The `@McpTool` annotation is required: the IDE only exposes annotated methods. Bodies are stubs (`TODO`) pending the JFrog API wiring — see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-### Using the IDE-native tools in Junie
-
-The IDE's MCP server treats Junie as an external client, so it must be pointed at the server once — these tools do **not** appear automatically:
-
-1. **Settings → Tools → MCP Server** → check **Enable MCP Server**.
-2. In **Clients Auto-Configuration**, find the **Junie** row and click **Auto-Configure** (it should flip from "Not configured"). Apply.
-3. Start a Junie task — the tools now appear as `mcp_idea_jfrog_artifactory_search`, `mcp_idea_jfrog_xray_security_scan`, and `mcp_idea_jfrog_ai_catalog_lookup`.
-
-By default these tools are **router-only** (reached through the universal `execute_tool` router, not listed individually), which keeps their descriptions out of the agent's context until needed. To list them by name instead, clear the **Router-only** checkbox for each under **Settings → Tools → MCP Server → Exposed Tools**.
-
-> Validated on IntelliJ IDEA 2026.2 (build 262) with Junie installed.
+- **`node` / `npx` / `jf` "command not found", or an installed MCP shows red in Junie.** Junie doesn't resolve your login-shell `PATH`, so bare commands (and a bare `"command": "npx"` entry) fail. Either launch the IDE from a terminal (e.g. `idea .`) so it inherits `PATH`, or ensure Node.js and the `jf` CLI are on a system `PATH`. The `jfrog-mcp-management` skill mitigates this by resolving absolute tool paths and writing MCP entries with an absolute `npx` path.
+- **Where are the MCP servers / tools?** In the IDE: **Settings → Tools → Junie → MCP Settings**. There is no interactive `/mcp` command in the IDE (typing `/mcp` in the Junie chat is treated as plain text).
+- **Agent Guard keeps asking for a JFrog project key.** That's by design — it never guesses. Set the `JF_PROJECT` environment variable to skip the prompt.
+- For platform-side MCP issues, see the [JFrog MCP Registry troubleshooting guide](https://docs.jfrog.com/ai-ml/docs/mcp-registry-troubleshooting).
 
 ## Updating the vendored skills
 
@@ -127,20 +114,6 @@ The `.junie/skills/` tree is vendored from [`jfrog/jfrog-skills`](https://github
 
 See [VENDOR.md](VENDOR.md) for the full picture.
 
-## Publishing to JetBrains Marketplace
-
-Publishing is signed + token-based via the IntelliJ Platform Gradle Plugin. Run it locally or from CI (the [`Publish to JetBrains Marketplace`](.github/workflows/publish-marketplace.yml) `workflow_dispatch` workflow):
-
-```bash
-export PUBLISH_TOKEN=...          # Marketplace token
-export CERTIFICATE_CHAIN="$(cat chain.crt)"
-export PRIVATE_KEY="$(cat private.pem)"
-export PRIVATE_KEY_PASSWORD=...   # if the key has one
-./gradlew publishPlugin           # signs, then uploads to the "default" channel
-```
-
-Requires the four secrets (`PUBLISH_TOKEN`, `CERTIFICATE_CHAIN`, `PRIVATE_KEY`, `PRIVATE_KEY_PASSWORD`) set in **Settings → Secrets and variables → Actions**. Compatibility range, signing, and publishing behavior live in [`build.gradle.kts`](build.gradle.kts).
-
 ## Repository layout
 
 ```
@@ -148,9 +121,7 @@ jetbrains-plugin/
 ├── build.gradle.kts / settings.gradle.kts / gradle.properties
 ├── src/main/resources/META-INF/plugin.xml       # plugin manifest
 ├── src/main/kotlin/com/jfrog/jetbrains/
-│   ├── startup/       # JfrogJunieDeployer (materializes skills + MCP into ~/.junie)
-│   ├── mcp/           # JfrogToolset (McpToolset implementation)
-│   └── actions/       # fallback "Configure JFrog MCP" action
+│   └── startup/       # JfrogJunieDeployer (materializes skills + MCP into ~/.junie)
 ├── .junie/skills/     # vendored Agent Skills (see VENDOR.md)
 ├── .junie/mcp/mcp.json # JFrog MCP server template (${JFROG_PLATFORM_URL})
 ├── .github/scripts/   # sync-skills vendoring
@@ -167,6 +138,21 @@ node scripts/validate-jetbrains-plugin.mjs   # fast: manifest + skills + MCP tem
 ./gradlew buildPlugin                         # produces build/distributions/*.zip
 ./gradlew runIde                              # launches a sandbox IDE with the plugin installed
 ```
+
+## Publishing to JetBrains Marketplace
+
+Publishing is signed + token-based (configured in [`build.gradle.kts`](build.gradle.kts)). Run it from the [`Publish to JetBrains Marketplace`](.github/workflows/publish-marketplace.yml) workflow (`workflow_dispatch`), or locally with `./gradlew publishPlugin`.
+
+It requires four repository secrets — add them under **Settings → Secrets and variables → Actions**:
+
+| Secret | What | Where to get it |
+| --- | --- | --- |
+| `PUBLISH_TOKEN` | Marketplace upload token | [Marketplace](https://plugins.jetbrains.com/) profile → **My Tokens** |
+| `CERTIFICATE_CHAIN` | Signing certificate chain (PEM) | [Plugin Signing](https://plugins.jetbrains.com/docs/intellij/plugin-signing.html) |
+| `PRIVATE_KEY` | Signing private key (PEM) | [Plugin Signing](https://plugins.jetbrains.com/docs/intellij/plugin-signing.html) |
+| `PRIVATE_KEY_PASSWORD` | Private-key password (only if the key has one) | — |
+
+> **The first version must be uploaded manually** at [plugins.jetbrains.com](https://plugins.jetbrains.com/) → **Upload plugin** (JetBrains reviews the first submission). Token/CI publishing only works after the plugin listing exists.
 
 ## Versioning
 
