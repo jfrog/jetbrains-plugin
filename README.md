@@ -53,11 +53,11 @@ Because a compiled JetBrains plugin can't drop files into place the way the file
 | Written to | What | Notes |
 | --- | --- | --- |
 | `~/.junie/skills/` | The vendored `jfrog-skills` bundle | Refreshed when the plugin version changes; other (non-JFrog) skills in the folder are left untouched. |
-| `~/.junie/mcp/mcp.json` | A `jfrog` remote MCP server entry | **Merged**, not clobbered — Junie's own `idea` entry and any other servers survive. The URL is resolved from `JFROG_PLATFORM_URL`. |
+| `~/.junie/mcp/mcp.json` | A `jfrog` remote MCP server entry | **Merged**, not clobbered — Junie's own `idea` entry and any other servers survive. The URL is resolved from `JFROG_PLATFORM_URL`, falling back to your JFrog CLI config. |
 
 Junie discovers both by convention (skills from `.junie/skills/`, MCP servers from `.junie/mcp/mcp.json`). The first JFrog MCP call in Junie triggers a one-time browser **OAuth** login.
 
-If `JFROG_PLATFORM_URL` isn't set when the IDE starts (common for IDEs launched from the Dock/Finder, which don't inherit your shell env), the entry is written with a `<JFROG_PLATFORM_URL>` placeholder — set the variable and restart the IDE, or edit `~/.junie/mcp/mcp.json` directly. The **Tools | Configure JFrog MCP...** action remains as a manual fallback.
+**Host resolution.** The `jfrog` URL host comes from `JFROG_PLATFORM_URL`; if that isn't set (common for IDEs launched from the Dock/Finder, which don't inherit your shell env), it falls back to the default server in your JFrog CLI config (`~/.jfrog/jfrog-cli.conf.v*`). Only if neither is available is a `<JFROG_PLATFORM_URL>` placeholder written — in that case set the variable (or run `jf config add`) and restart the IDE, or edit `~/.junie/mcp/mcp.json` directly. The **Tools | Configure JFrog MCP...** action remains as a manual fallback.
 
 ## Skills
 

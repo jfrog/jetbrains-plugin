@@ -114,13 +114,48 @@ class JfrogJunieDeployer : ProjectActivity {
         LOG.info("Configured JFrog MCP server in $mcpFile (url=$url)")
     }
 
-    // Mirrors ConfigureJfrogMcpAction: read JFROG_PLATFORM_URL, tolerate a
-    // trailing slash or a scheme already being present.
+    // Resolve the JFrog platform host. Prefer JFROG_PLATFORM_URL, but a GUI IDE
+    // launched from the Dock/Finder does NOT inherit the shell environment, so
+    // fall back to the JFrog CLI config the user has already set up. We read
+    // ~/.jfrog/jfrog-cli.conf.v* directly rather than shelling out to `jf`,
+    // which may not be on the IDE process's PATH either.
     private fun resolvePlatformHost(): String? {
-        val raw = System.getenv("JFROG_PLATFORM_URL")?.trim()?.trimEnd('/')
-        if (raw.isNullOrEmpty()) return null
-        return if (raw.startsWith("http://") || raw.startsWith("https://")) raw else "https://$raw"
+        val env = System.getenv("JFROG_PLATFORM_URL")
+        if (!env.isNullOrBlank()) return normalizeHost(env)
+        return hostFromJfrogCliConfig()
     }
+
+    // Tolerate a trailing slash or an already-present scheme.
+    private fun normalizeHost(raw: String): String? {
+        val h = raw.trim().trimEnd('/')
+        if (h.isEmpty()) return null
+        return if (h.startsWith("http://") || h.startsWith("https://")) h else "https://$h"
+    }
+
+    // Read the default server's URL from the highest-versioned
+    // ~/.jfrog/jfrog-cli.conf.v* file (plain JSON). Falls back to the first
+    // server if none is flagged default. Only the `url` is read.
+    private fun hostFromJfrogCliConfig(): String? {
+        val jfrogDir = Path.of(System.getProperty("user.home"), ".jfrog")
+        if (!Files.isDirectory(jfrogDir)) return null
+        val conf = Files.list(jfrogDir).use { paths ->
+            paths.filter { it.fileName.toString().startsWith("jfrog-cli.conf.v") }
+                .max(compareBy { confVersion(it.fileName.toString()) })
+                .orElse(null)
+        } ?: return null
+        val root = runCatching { JsonParser.parseString(Files.readString(conf)).asJsonObject }.getOrNull() ?: return null
+        val servers = root.getAsJsonArray("servers") ?: return null
+        if (servers.size() == 0) return null
+        val server = (0 until servers.size())
+            .map { servers[it].asJsonObject }
+            .firstOrNull { it.get("isDefault")?.asBoolean == true }
+            ?: servers[0].asJsonObject
+        val url = server.get("url")?.asString ?: return null
+        return normalizeHost(url)
+    }
+
+    private fun confVersion(name: String): Int =
+        name.removePrefix("jfrog-cli.conf.v").toIntOrNull() ?: -1
 
     private val pluginVersion: String
         get() = PluginManagerCore.getPlugin(PluginId.getId(PLUGIN_ID))?.version ?: "dev"
