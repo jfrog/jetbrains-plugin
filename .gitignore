@@ -22,6 +22,7 @@ temp/
 # Gradle / Kotlin build output
 .gradle/
 build/
+.kotlin/
 out/
 *.iml
 
