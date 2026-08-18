@@ -8,6 +8,8 @@ import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.intellij.ide.plugins.PluginManagerCore
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.project.Project
@@ -21,16 +23,22 @@ import java.util.zip.ZipInputStream
 // (~/.junie) so Junie loads them:
 //   ~/.junie/skills/       <- vendored jfrog-skills bundle (see VENDOR.md)
 //   ~/.junie/mcp/mcp.json  <- a "jfrog" MCP entry (merged, keeping other servers)
+//
+// Several projects can open at once and run this activity concurrently, so the
+// work is serialized on DEPLOY_LOCK and mcp.json is written atomically.
 class JfrogJunieDeployer : ProjectActivity {
     override suspend fun execute(project: Project) {
         try {
-            val junieHome = Path.of(System.getProperty("user.home"), ".junie")
-            deploySkills(junieHome.resolve("skills"))
-            deployMcpServer(junieHome.resolve("mcp").resolve("mcp.json"))
+            synchronized(DEPLOY_LOCK) {
+                val junieHome = Path.of(System.getProperty("user.home"), ".junie")
+                deploySkills(junieHome.resolve("skills"))
+                deployMcpServer(junieHome.resolve("mcp").resolve("mcp.json"))
+            }
         } catch (t: Throwable) {
-            // Never let a failed deploy break IDE startup; the user can still
-            // configure ~/.junie manually (see README "How delivery works").
+            // Never let a failed deploy break IDE startup, but surface it so the
+            // user knows to configure ~/.junie manually (see README).
             LOG.warn("Failed to deploy JFrog assets into ~/.junie", t)
+            notifyFailure(project, t)
         }
     }
 
@@ -54,13 +62,15 @@ class JfrogJunieDeployer : ProjectActivity {
         ZipInputStream(stream).use { zip ->
             var entry = zip.nextEntry
             while (entry != null) {
-                val top = entry.name.substringBefore('/')
-                if (top.isNotEmpty() && refreshedSkillDirs.add(top)) {
-                    skillsDir.resolve(top).toFile().deleteRecursively()
-                }
                 val target = skillsDir.resolve(entry.name).normalize()
-                // Zip-slip guard: never write outside the skills directory.
+                // Zip-slip guard FIRST: skip anything that resolves outside
+                // skillsDir, so neither the wipe nor the write can escape it.
                 if (target.startsWith(skillsDir)) {
+                    // Top-level skill dir, taken from the guarded path (safe).
+                    val top = skillsDir.relativize(target).firstOrNull()?.toString()
+                    if (!top.isNullOrEmpty() && refreshedSkillDirs.add(top)) {
+                        skillsDir.resolve(top).toFile().deleteRecursively()
+                    }
                     if (entry.isDirectory) {
                         Files.createDirectories(target)
                     } else {
@@ -82,22 +92,11 @@ class JfrogJunieDeployer : ProjectActivity {
         val host = resolvePlatformHost()
         val url = if (host != null) "$host/mcp" else "https://$PLATFORM_URL_PLACEHOLDER/mcp"
 
-        val root: JsonObject = if (Files.exists(mcpFile)) {
-            runCatching { JsonParser.parseString(Files.readString(mcpFile)).asJsonObject }.getOrElse { JsonObject() }
-        } else {
-            JsonObject()
-        }
+        val current = if (Files.exists(mcpFile)) Files.readString(mcpFile) else null
+        val merged = JfrogDeployLogic.mergeMcpJson(current, url, urlIsPlaceholder = host == null)
+        if (merged == null) return // nothing to change (or unparseable file we won't clobber)
 
-        val servers = root.getAsJsonObject("mcpServers") ?: JsonObject().also { root.add("mcpServers", it) }
-        val existing = servers.getAsJsonObject("jfrog")
-
-        // Don't stomp a working, user-resolved URL with a placeholder.
-        if (host == null && existing != null) return
-        if (existing != null && existing.get("url")?.asString == url) return
-
-        servers.add("jfrog", JsonObject().apply { addProperty("url", url) })
-        Files.createDirectories(mcpFile.parent)
-        Files.writeString(mcpFile, GsonBuilder().setPrettyPrinting().create().toJson(root))
+        writeAtomically(mcpFile, merged)
         LOG.info("Configured JFrog MCP server in $mcpFile (url=$url)")
     }
 
@@ -106,19 +105,8 @@ class JfrogJunieDeployer : ProjectActivity {
     // `jf` may not be on the IDE's PATH.
     private fun resolvePlatformHost(): String? {
         val env = System.getenv("JFROG_PLATFORM_URL")
-        if (!env.isNullOrBlank()) return normalizeHost(env)
-        return hostFromJfrogCliConfig()
-    }
+        if (!env.isNullOrBlank()) return JfrogDeployLogic.normalizeHost(env)
 
-    // Tolerate a trailing slash or an already-present scheme.
-    private fun normalizeHost(raw: String): String? {
-        val h = raw.trim().trimEnd('/')
-        if (h.isEmpty()) return null
-        return if (h.startsWith("http://") || h.startsWith("https://")) h else "https://$h"
-    }
-
-    // Read the host from the highest-versioned ~/.jfrog/jfrog-cli.conf.v* (JSON).
-    private fun hostFromJfrogCliConfig(): String? {
         val jfrogDir = Path.of(System.getProperty("user.home"), ".jfrog")
         if (!Files.isDirectory(jfrogDir)) return null
         val conf = Files.list(jfrogDir).use { paths ->
@@ -126,18 +114,39 @@ class JfrogJunieDeployer : ProjectActivity {
                 .max(compareBy { confVersion(it.fileName.toString()) })
                 .orElse(null)
         } ?: return null
-        val root = runCatching { JsonParser.parseString(Files.readString(conf)).asJsonObject }.getOrNull() ?: return null
-        val servers = root.getAsJsonArray("servers") ?: return null
-        if (servers.size() == 0) return null
-        val serverObjs = (0 until servers.size()).map { servers[it].asJsonObject }
-        // One server is unambiguous; otherwise prefer the default, then the first.
-        val server = if (serverObjs.size == 1) {
-            serverObjs[0]
-        } else {
-            serverObjs.firstOrNull { it.get("isDefault")?.asBoolean == true } ?: serverObjs[0]
+        return JfrogDeployLogic.selectHostFromCliConfig(Files.readString(conf))
+    }
+
+    // Write via a temp file in the same directory, then atomically rename over the
+    // target so a concurrent reader never sees a half-written file.
+    private fun writeAtomically(target: Path, content: String) {
+        Files.createDirectories(target.parent)
+        val tmp = Files.createTempFile(target.parent, ".${target.fileName}", ".tmp")
+        try {
+            Files.writeString(tmp, content)
+            try {
+                Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE)
+            } catch (e: Exception) {
+                // ATOMIC_MOVE isn't supported on every filesystem; fall back.
+                Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING)
+            }
+        } finally {
+            Files.deleteIfExists(tmp)
         }
-        val url = server.get("url")?.asString ?: return null
-        return normalizeHost(url)
+    }
+
+    private fun notifyFailure(project: Project, t: Throwable) {
+        runCatching {
+            NotificationGroupManager.getInstance()
+                .getNotificationGroup("JFrog")
+                .createNotification(
+                    "JFrog setup incomplete",
+                    "Couldn't set up JFrog skills / MCP in ~/.junie: ${t.message ?: t.javaClass.simpleName}. " +
+                        "See the plugin README (\"How delivery works\") to configure it manually.",
+                    NotificationType.WARNING,
+                )
+                .notify(project)
+        }
     }
 
     private fun confVersion(name: String): Int =
@@ -148,9 +157,70 @@ class JfrogJunieDeployer : ProjectActivity {
 
     private companion object {
         val LOG = logger<JfrogJunieDeployer>()
+        val DEPLOY_LOCK = Any()
         const val PLUGIN_ID = "com.jfrog.jetbrains"
         const val SKILLS_RESOURCE = "junie/junie-skills.zip"
         const val MARKER_FILE = ".jfrog-plugin-version"
         const val PLATFORM_URL_PLACEHOLDER = "<JFROG_PLATFORM_URL>"
+    }
+}
+
+internal object JfrogDeployLogic {
+
+    // Normalizes a host into a scheme-qualified base URL, tolerating a trailing
+    // slash or an already-present scheme. Returns null for blank input.
+    fun normalizeHost(raw: String?): String? {
+        val h = raw?.trim()?.trimEnd('/').orEmpty()
+        if (h.isEmpty()) return null
+        return if (h.startsWith("http://") || h.startsWith("https://")) h else "https://$h"
+    }
+
+    // Picks the JFrog host from a jfrog-cli config JSON. One server is
+    // unambiguous; with several, only a server flagged default is used. With
+    // several and none flagged we do NOT guess: startup is non-interactive so we
+    // can't ask, and callers fall back to the manual placeholder instead.
+    fun selectHostFromCliConfig(configJson: String): String? {
+        val root = runCatching { JsonParser.parseString(configJson).asJsonObject }.getOrNull() ?: return null
+        val servers = root.getAsJsonArray("servers") ?: return null
+        val serverObjs = servers.mapNotNull { it as? JsonObject }
+        val server = when {
+            serverObjs.isEmpty() -> return null
+            serverObjs.size == 1 -> serverObjs[0]
+            else -> serverObjs.firstOrNull { it.boolOrFalse("isDefault") } ?: return null
+        }
+        return normalizeHost(server.stringOrNull("url"))
+    }
+
+    // Merges a "jfrog" server entry into an existing mcp.json, preserving every
+    // other server. Returns the JSON text to write, or null when nothing should
+    // change: an unparseable current file, an existing entry when we only have
+    // a placeholder, or an already-correct URL.
+    fun mergeMcpJson(currentJson: String?, jfrogUrl: String, urlIsPlaceholder: Boolean): String? {
+        val root: JsonObject = if (currentJson.isNullOrBlank()) {
+            JsonObject()
+        } else {
+            runCatching { JsonParser.parseString(currentJson).asJsonObject }.getOrNull() ?: return null
+        }
+
+        val servers = root.getAsJsonObject("mcpServers") ?: JsonObject().also { root.add("mcpServers", it) }
+        val existing = servers.getAsJsonObject("jfrog")
+
+        if (urlIsPlaceholder && existing != null) return null
+        if (existing != null && existing.stringOrNull("url") == jfrogUrl) return null
+
+        servers.add("jfrog", JsonObject().apply { addProperty("url", jfrogUrl) })
+        return GsonBuilder().setPrettyPrinting().create().toJson(root)
+    }
+
+    // Returns the string value only for an actual JSON string; null for a missing
+    // key, JSON null, or non-string - so `?.asString` can never throw on JsonNull.
+    private fun JsonObject.stringOrNull(key: String): String? {
+        val el = get(key) ?: return null
+        return if (el.isJsonPrimitive && el.asJsonPrimitive.isString) el.asString else null
+    }
+
+    private fun JsonObject.boolOrFalse(key: String): Boolean {
+        val el = get(key) ?: return false
+        return el.isJsonPrimitive && el.asJsonPrimitive.isBoolean && el.asBoolean
     }
 }

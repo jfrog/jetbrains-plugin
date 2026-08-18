@@ -16,6 +16,9 @@
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">
+        <!-- Balloon used to surface a visible warning if the startup deploy fails. -->
+        <notificationGroup id="JFrog" displayType="BALLOON"/>
+
         <!-- Writes the bundled JFrog skills + MCP entry into ~/.junie/ on
              startup, so Junie picks them up by convention. -->
         <postStartupActivity implementation="com.jfrog.jetbrains.startup.JfrogJunieDeployer"/>

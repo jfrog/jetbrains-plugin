@@ -5,15 +5,13 @@
 # Manually publishes the plugin to JetBrains Marketplace via `./gradlew publishPlugin`.
 # Requires secrets PUBLISH_TOKEN, CERTIFICATE_CHAIN, PRIVATE_KEY, PRIVATE_KEY_PASSWORD;
 # the first version must be uploaded manually via the Marketplace web UI beforehand.
+#
+# Must be dispatched from a release tag (v*): the signing secrets are exposed to
+# the checked-out code, so we don't allow an arbitrary ref/branch to run with them.
 name: Publish to JetBrains Marketplace
 
 on:
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: "Tag or commit to publish (e.g. v0.1.0). Defaults to the branch it's run from."
-        required: false
-        default: ""
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -27,9 +25,15 @@ jobs:
       PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
       PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
     steps:
+      - name: Enforce release-tag ref
+        run: |
+          if [[ "${GITHUB_REF}" != refs/tags/v* ]]; then
+            echo "::error::Publish must be run from a release tag (v*). Got '${GITHUB_REF}'."
+            exit 1
+          fi
+
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.inputs.ref }}
           fetch-depth: 0
 
       - name: Fail early if the publish token is missing
