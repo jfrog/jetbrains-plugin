@@ -6,9 +6,9 @@ Thank you for your interest in contributing! This project is maintained by JFrog
 
 All contributors must sign the [JFrog CLA](https://jfrog.com/cla/) before contributions can be merged into the official `jfrog/jetbrains-plugin` repository. A CLA check runs automatically on pull requests when CI is enabled — follow the prompts to sign if you haven't already.
 
-## Validate in a real IDE, not the `runIde` sandbox
+## Validate in a real IDE
 
-Junie's double-descriptor packaging (a single install registered under both `org.jetbrains.junie` and `org.jetbrains.plugins.junie`) triggers a `loader constraint violation` when side-loaded into the `runIde` dev sandbox — its LLM call fails there, even though the JFrog MCP + skills deliver and authenticate fine. For end-to-end checks, install the `buildPlugin` zip into a **real** IntelliJ + Junie rather than relying on the sandbox.
+For end-to-end checks, install the `buildPlugin` zip into a real IntelliJ + Junie (**Settings | Plugins | ⚙ | Install Plugin from Disk...**). The `runIde` sandbox can't run Junie end-to-end.
 
 ## How to Contribute
 
@@ -22,11 +22,7 @@ node scripts/validate-jetbrains-plugin.mjs
 
 This checks `plugin.xml` and walks every `.junie/skills/*/SKILL.md` for required YAML frontmatter.
 
-4. **Test** by running the sandbox IDE from the repo root:
-
-```bash
-./gradlew runIde
-```
+4. **Test** by installing the built zip (`./gradlew buildPlugin`) into a real IntelliJ + Junie — see "Validate in a real IDE" above.
 
 5. **Commit** with a clear, descriptive message.
 6. Open a **pull request** against `main` with a summary of what changed and why.

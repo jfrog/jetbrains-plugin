@@ -17,10 +17,8 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.zip.ZipInputStream
 
-// Materializes the bundled JFrog assets into the user's Junie home (~/.junie) on
-// IDE startup - a compiled plugin can't drop files in place like the file-based
-// Cursor/Claude/Codex plugins, so it writes them here (Junie discovers both by
-// convention):
+// On IDE startup, writes the bundled JFrog assets into the user's Junie home
+// (~/.junie) so Junie loads them:
 //   ~/.junie/skills/       <- vendored jfrog-skills bundle (see VENDOR.md)
 //   ~/.junie/mcp/mcp.json  <- a "jfrog" MCP entry (merged, keeping other servers)
 class JfrogJunieDeployer : ProjectActivity {

@@ -2,7 +2,7 @@
 
 JFrog plugin for JetBrains IDEs (IntelliJ IDEA, PyCharm, WebStorm, GoLand, Rider, and others). It delivers the JFrog Agent Skills bundle and a JFrog (remote) MCP server to [Junie](https://www.jetbrains.com/junie/) — artifact management, security scanning, supply-chain best practices, and Agent Guard for MCP governance.
 
-> **Status:** the JFrog skills bundle and the JFrog (remote) MCP server are delivered to Junie automatically on IDE startup. Not yet published to JetBrains Marketplace — see [CONTRIBUTING.md](CONTRIBUTING.md).
+> **Status:** the JFrog skills bundle and the JFrog (remote) MCP server are delivered to Junie automatically on IDE startup.
 
 ## Scope
 
@@ -25,17 +25,9 @@ This plugin targets **Junie**, JetBrains' native coding agent, specifically. Int
 - **Skill runtime** (when using the skills) — `jf` CLI, `jq`, and `curl` on `PATH`, plus a configured JFrog instance. For the minimum versions, see the upstream skills [`Requirements`](https://github.com/jfrog/jfrog-skills/blob/v0.20.0/README.md#requirements).
 - **JFrog Platform access** (optional) — the Agent Guard feature needs the AI Catalog entitlement on your subscription.
 
-CLI authentication options: run `jf login` for browser-based setup, or set the `JFROG_ACCESS_TOKEN` environment variable. The JFrog MCP server authenticates via **OAuth** and requires no additional configuration.
-
 ## Installation
 
-Not yet published to JetBrains Marketplace. For local development:
-
-```bash
-./gradlew runIde      # launches a sandbox IDE with the plugin installed
-```
-
-or build a distributable zip and install it via **Settings | Plugins | ⚙ | Install Plugin from Disk...**:
+Install **JFrog for Coding Agents** from the JetBrains Marketplace (**Settings | Plugins | Marketplace**, then search for it), or build the zip from source and install it via **Settings | Plugins | ⚙ | Install Plugin from Disk...**:
 
 ```bash
 ./gradlew buildPlugin # produces build/distributions/*.zip
@@ -43,7 +35,7 @@ or build a distributable zip and install it via **Settings | Plugins | ⚙ | Ins
 
 ## How delivery works
 
-Because a compiled JetBrains plugin can't drop files into place the way the file-based Cursor/Claude/Codex plugins do, this plugin ships the same assets and materializes them into your **global Junie home** on IDE startup ([`JfrogJunieDeployer`](src/main/kotlin/com/jfrog/jetbrains/startup/JfrogJunieDeployer.kt)):
+The plugin materializes its assets into your **global Junie home** on IDE startup ([`JfrogJunieDeployer`](src/main/kotlin/com/jfrog/jetbrains/startup/JfrogJunieDeployer.kt)):
 
 | Written to | What | Notes |
 | --- | --- | --- |
@@ -136,8 +128,9 @@ jetbrains-plugin/
 node scripts/validate-jetbrains-plugin.mjs   # fast: manifest + skills + MCP template
 ./gradlew verifyPlugin                        # plugin structure + compatibility checks
 ./gradlew buildPlugin                         # produces build/distributions/*.zip
-./gradlew runIde                              # launches a sandbox IDE with the plugin installed
 ```
+
+Then install the built zip in a real IntelliJ + Junie and confirm the JFrog skills + JFrog MCP surface. (The `runIde` sandbox can't run Junie end-to-end.)
 
 ## Publishing to JetBrains Marketplace
 
