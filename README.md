@@ -147,7 +147,6 @@ Requires the four secrets (`PUBLISH_TOKEN`, `CERTIFICATE_CHAIN`, `PRIVATE_KEY`, 
 jetbrains-plugin/
 ├── build.gradle.kts / settings.gradle.kts / gradle.properties
 ├── src/main/resources/META-INF/plugin.xml       # plugin manifest
-├── src/main/resources/META-INF/jfrog-junie.xml  # loaded only when Junie is present
 ├── src/main/kotlin/com/jfrog/jetbrains/
 │   ├── startup/       # JfrogJunieDeployer (materializes skills + MCP into ~/.junie)
 │   ├── mcp/           # JfrogToolset (McpToolset implementation)

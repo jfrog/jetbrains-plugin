@@ -20,14 +20,6 @@
          the mcpTool extensions below. -->
     <depends>com.intellij.mcpServer</depends>
 
-    <!-- Optional: only loads jfrog-junie.xml when Junie is installed. Kept
-         optional (not a hard <depends>) deliberately - unlike the mcpServer
-         dependency above, we could not confirm Junie's plugin id
-         (org.jetbrains.junie) against a real installed build, and a wrong
-         *required* id would silently break the whole plugin for everyone.
-         See CONTRIBUTING.md "Known open risk". -->
-    <depends optional="true" config-file="jfrog-junie.xml">org.jetbrains.junie</depends>
-
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup id="JFrog" displayType="BALLOON"/>
 

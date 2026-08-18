@@ -19,7 +19,9 @@ This is the single most important thing to know before working on this repo.
 
 1. Whether tools registered this way are automatically visible to **Junie's own tool-calling**, or whether they only reach *external* MCP clients that connect to the IDE's built-in MCP server. This is the crux of the original design question and still needs a live check.
 2. How a toolset method obtains the current `Project` — none of the bundled toolsets take it as a parameter (confirmed via `javap`), so it's resolved ambiently, likely via coroutine context. Decompile `com.intellij.mcpserver.toolsets.general.CodeInsightToolset` (same jar) for the real accessor before wiring actual JFrog API calls into `JfrogToolset.kt`.
-3. Junie's actual plugin id is believed to be `org.jetbrains.junie` (via the JetBrains Marketplace API), but this has not been cross-checked against a real installed Junie `plugin.xml`. That's why the `<depends>` on it in `plugin.xml` is `optional="true"` rather than required — a wrong *required* id would break plugin load entirely.
+3. Junie's plugin id. A real installed Junie (build 252.819.54) registers the single `plugins/ej` install under **two** main descriptors — `org.jetbrains.junie` *and* `org.jetbrains.plugins.junie`. Because of this, an earlier optional `<depends config-file="jfrog-junie.xml">org.jetbrains.junie</depends>` (which pointed at an empty config file) has been **removed**: it was dead weight and a plausible aggravator of a `runIde`-sandbox `loader constraint violation` on Junie's `matterhorn.core` module (two classloaders for the one plugin). If Junie-specific `plugin.xml` wiring is ever needed, reintroduce it against a **confirmed** id verified from the two descriptors above — do not guess.
+
+   **Validate Junie in a real IDE, not the `runIde` sandbox.** Junie's double-descriptor packaging triggers the classloader violation above when side-loaded into a dev sandbox (its LLM call fails), even though the JFrog MCP + skills deliver and authenticate fine. Install the `buildPlugin` zip into a real IntelliJ + Junie for end-to-end checks.
 
 **Before shipping a real release:**
 
