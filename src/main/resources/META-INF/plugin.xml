@@ -30,6 +30,11 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup id="JFrog" displayType="BALLOON"/>
+
+        <!-- Materializes the bundled JFrog skills + JFrog MCP entry into the
+             user's ~/.junie/ on startup, so Junie picks them up by convention
+             (the same skills + MCP the Cursor/Claude/Codex plugins ship). -->
+        <postStartupActivity implementation="com.jfrog.jetbrains.startup.JfrogJunieDeployer"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij.mcpServer">

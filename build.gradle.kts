@@ -28,6 +28,22 @@ dependencies {
     }
 }
 
+// Bundle the vendored Junie assets into the plugin jar so the runtime deployer
+// (JfrogJunieDeployer) can materialize them into the user's ~/.junie/ on IDE
+// startup - Junie's own discovery convention. The skill tree is zipped (a jar
+// can't enumerate a bundled directory), the MCP config template is copied as-is.
+val bundleJunieSkills by tasks.registering(Zip::class) {
+    from(layout.projectDirectory.dir(".junie/skills"))
+    archiveFileName.set("junie-skills.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("tmp/junie-assets"))
+}
+
+tasks.processResources {
+    dependsOn(bundleJunieSkills)
+    from(bundleJunieSkills) { into("junie") }
+    from(layout.projectDirectory.file(".junie/mcp/mcp.json")) { into("junie/mcp") }
+}
+
 intellijPlatform {
     pluginConfiguration {
         version = providers.gradleProperty("version")

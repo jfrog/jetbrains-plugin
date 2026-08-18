@@ -101,9 +101,31 @@ async function validatePluginXml() {
   }
 }
 
+async function validateMcpTemplate() {
+  const mcpPath = path.join(repoRoot, ".junie", "mcp", "mcp.json");
+  if (!(await pathExists(mcpPath))) {
+    addError(`JFrog MCP template missing: ${path.relative(repoRoot, mcpPath)}`);
+    return;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(await fs.readFile(mcpPath, "utf8"));
+  } catch (err) {
+    addError(`JFrog MCP template is not valid JSON: ${err.message}`);
+    return;
+  }
+  const jfrog = parsed?.mcpServers?.jfrog;
+  if (!jfrog || typeof jfrog.url !== "string") {
+    addError(`JFrog MCP template must define mcpServers.jfrog.url`);
+  } else if (!jfrog.url.includes("${JFROG_PLATFORM_URL}")) {
+    addWarning(`JFrog MCP template url does not reference \${JFROG_PLATFORM_URL} - confirm this is intentional`);
+  }
+}
+
 async function main() {
   await validatePluginXml();
   await validateSkills();
+  await validateMcpTemplate();
   summarizeAndExit();
 }
 

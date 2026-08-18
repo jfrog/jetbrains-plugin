@@ -1,0 +1,135 @@
+// Copyright (c) JFrog Ltd. 2026
+// Licensed under the Apache License, Version 2.0
+// https://www.apache.org/licenses/LICENSE-2.0
+
+package com.jfrog.jetbrains.startup
+
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
+import com.intellij.ide.plugins.PluginManagerCore
+import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.extensions.PluginId
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.startup.ProjectActivity
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import java.util.zip.ZipInputStream
+
+// Materializes the bundled JFrog assets into the user's global Junie home
+// (~/.junie) on IDE startup, matching how the Cursor/Claude/Codex plugins
+// ship the same skills + JFrog MCP entry - here through plugin code because a
+// compiled JetBrains plugin can't drop files into place the way a file-based
+// plugin does.
+//
+//   ~/.junie/skills/       <- the vendored jfrog-skills bundle (see VENDOR.md)
+//   ~/.junie/mcp/mcp.json  <- a "jfrog" remote MCP server entry (merged, not
+//                             clobbered, so Junie's own "idea" entry survives)
+//
+// Junie discovers both by convention: skills from .junie/skills/, MCP servers
+// from .junie/mcp/mcp.json (a url entry is supported here, unlike the AI
+// Assistant "MCP Server" settings page - see ConfigureJfrogMcpAction).
+class JfrogJunieDeployer : ProjectActivity {
+    override suspend fun execute(project: Project) {
+        try {
+            val junieHome = Path.of(System.getProperty("user.home"), ".junie")
+            deploySkills(junieHome.resolve("skills"))
+            deployMcpServer(junieHome.resolve("mcp").resolve("mcp.json"))
+        } catch (t: Throwable) {
+            // Never let a failed deploy break IDE startup - the manual
+            // "Configure JFrog MCP..." action remains as a fallback.
+            LOG.warn("Failed to deploy JFrog assets into ~/.junie", t)
+        }
+    }
+
+    // Unpacks the bundled skills zip into ~/.junie/skills/. A version marker
+    // makes this a no-op once the current plugin version has been deployed, so
+    // it doesn't re-extract on every project open. Each JFrog skill directory
+    // is removed before extraction so upstream deletions don't leave stale files
+    // behind; other (non-JFrog) skills in the same folder are left untouched.
+    private fun deploySkills(skillsDir: Path) {
+        val marker = skillsDir.resolve(MARKER_FILE)
+        if (Files.exists(marker) && runCatching { Files.readString(marker).trim() }.getOrNull() == pluginVersion) {
+            return
+        }
+
+        val stream = javaClass.classLoader.getResourceAsStream(SKILLS_RESOURCE)
+        if (stream == null) {
+            LOG.warn("Bundled skills archive '$SKILLS_RESOURCE' not found on classpath")
+            return
+        }
+
+        Files.createDirectories(skillsDir)
+        val refreshedSkillDirs = HashSet<String>()
+        ZipInputStream(stream).use { zip ->
+            var entry = zip.nextEntry
+            while (entry != null) {
+                val top = entry.name.substringBefore('/')
+                if (top.isNotEmpty() && refreshedSkillDirs.add(top)) {
+                    skillsDir.resolve(top).toFile().deleteRecursively()
+                }
+                val target = skillsDir.resolve(entry.name).normalize()
+                // Zip-slip guard: never write outside the skills directory.
+                if (target.startsWith(skillsDir)) {
+                    if (entry.isDirectory) {
+                        Files.createDirectories(target)
+                    } else {
+                        Files.createDirectories(target.parent)
+                        Files.copy(zip, target, StandardCopyOption.REPLACE_EXISTING)
+                    }
+                }
+                zip.closeEntry()
+                entry = zip.nextEntry
+            }
+        }
+        Files.writeString(marker, pluginVersion)
+        LOG.info("Deployed JFrog skills (v$pluginVersion) to $skillsDir")
+    }
+
+    // Adds/updates a "jfrog" entry in ~/.junie/mcp/mcp.json, preserving any
+    // other servers already configured (e.g. Junie's own "idea" entry). The
+    // host is resolved from JFROG_PLATFORM_URL; if it isn't set we don't
+    // overwrite an already-good entry with a placeholder.
+    private fun deployMcpServer(mcpFile: Path) {
+        val host = resolvePlatformHost()
+        val url = if (host != null) "$host/mcp" else "https://$PLATFORM_URL_PLACEHOLDER/mcp"
+
+        val root: JsonObject = if (Files.exists(mcpFile)) {
+            runCatching { JsonParser.parseString(Files.readString(mcpFile)).asJsonObject }.getOrElse { JsonObject() }
+        } else {
+            JsonObject()
+        }
+
+        val servers = root.getAsJsonObject("mcpServers") ?: JsonObject().also { root.add("mcpServers", it) }
+        val existing = servers.getAsJsonObject("jfrog")
+
+        // Don't stomp a working, user-resolved URL with a placeholder.
+        if (host == null && existing != null) return
+        if (existing != null && existing.get("url")?.asString == url) return
+
+        servers.add("jfrog", JsonObject().apply { addProperty("url", url) })
+        Files.createDirectories(mcpFile.parent)
+        Files.writeString(mcpFile, GsonBuilder().setPrettyPrinting().create().toJson(root))
+        LOG.info("Configured JFrog MCP server in $mcpFile (url=$url)")
+    }
+
+    // Mirrors ConfigureJfrogMcpAction: read JFROG_PLATFORM_URL, tolerate a
+    // trailing slash or a scheme already being present.
+    private fun resolvePlatformHost(): String? {
+        val raw = System.getenv("JFROG_PLATFORM_URL")?.trim()?.trimEnd('/')
+        if (raw.isNullOrEmpty()) return null
+        return if (raw.startsWith("http://") || raw.startsWith("https://")) raw else "https://$raw"
+    }
+
+    private val pluginVersion: String
+        get() = PluginManagerCore.getPlugin(PluginId.getId(PLUGIN_ID))?.version ?: "dev"
+
+    private companion object {
+        val LOG = logger<JfrogJunieDeployer>()
+        const val PLUGIN_ID = "com.jfrog.jetbrains"
+        const val SKILLS_RESOURCE = "junie/junie-skills.zip"
+        const val MARKER_FILE = ".jfrog-plugin-version"
+        const val PLATFORM_URL_PLACEHOLDER = "<JFROG_PLATFORM_URL>"
+    }
+}
