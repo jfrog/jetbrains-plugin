@@ -14,11 +14,6 @@ own license and copyright terms.
 Third-Party Software Notices
 --------------------------------------------------------------------
 
-kotlinx-serialization-json (1.6.3)
-License: Apache-2.0
-Homepage: https://github.com/Kotlin/kotlinx.serialization
-Copyright: Copyright 2017-2024 JetBrains s.r.o. and contributors
-
 junit (4.13.2) [test-only, not distributed with the plugin]
 License: EPL-1.0
 Homepage: https://junit.org/junit4/
@@ -34,7 +29,7 @@ License: Apache-2.0
 Homepage: https://github.com/JetBrains/kotlin
 Copyright: Copyright 2010-2024 JetBrains s.r.o. and contributors
 
-com.intellij.mcpServer (IDE-bundled plugin, not distributed with this plugin)
-License: Proprietary — part of the JetBrains IDE distribution, not vendored
-Homepage: https://www.jetbrains.com/
-Copyright: Copyright 2000-2024 JetBrains s.r.o.
+Gson (provided by the IntelliJ Platform, not distributed with this plugin)
+License: Apache-2.0
+Homepage: https://github.com/google/gson
+Copyright: Copyright 2008 Google Inc.

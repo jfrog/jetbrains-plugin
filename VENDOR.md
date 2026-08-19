@@ -11,6 +11,8 @@ Included directories: `jfrog/`, `jfrog-package-safety-and-download/`, `jfrog-ai-
 
 Unlike the other JFrog plugin repos, upstream's `skills/` is renamed to `.junie/skills/` on vendor - that's Junie's own Agent Skills discovery convention, not a JFrog-specific choice.
 
+At build time the vendored tree is zipped into the plugin jar (`junie/junie-skills.zip`) so the startup deployer ([`JfrogJunieDeployer`](src/main/kotlin/com/jfrog/jetbrains/startup/JfrogJunieDeployer.kt)) can materialize it into the user's `~/.junie/skills/` - see the README's "How delivery works".
+
 ## Refreshing
 
 When the upstream repo publishes a new release, refresh the vendored tree via a PR that:
@@ -25,4 +27,4 @@ To regenerate the tree locally before opening the PR:
 node .github/scripts/sync-skills.mjs
 ```
 
-The script reads its sibling [`sync-skills-vendor.json`](.github/scripts/sync-skills-vendor.json), downloads the pinned upstream tarball from `codeload.github.com`, and replaces each destination listed in `mappings` (today: `skills` &rarr; `.junie/skills`).
+The script reads its sibling [`sync-skills-vendor.json`](.github/scripts/sync-skills-vendor.json), downloads the pinned upstream tarball from `codeload.github.com` (public `jfrog/jfrog-skills`), and replaces each destination listed in `mappings` (today: `skills` &rarr; `.junie/skills`).
