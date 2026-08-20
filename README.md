@@ -149,7 +149,9 @@ It requires four repository secrets — add them under **Settings → Secrets an
 
 ## Versioning
 
-Bump `version` in [`gradle.properties`](gradle.properties) (and [`VERSION`](VERSION)) when you publish a new release, then tag (for example `v0.2.0`).
+Bump `version` in [`gradle.properties`](gradle.properties) (and [`VERSION`](VERSION)) when you
+publish a new release, then merge to `main`. [`.github/workflows/release.yml`](.github/workflows/release.yml)
+creates the `vX.Y.Z` tag and GitHub Release when the version is newer than the latest tag.
 
 ## License
 
