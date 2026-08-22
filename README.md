@@ -149,7 +149,15 @@ It requires four repository secrets — add them under **Settings → Secrets an
 
 ## Versioning
 
-Bump `version` in [`gradle.properties`](gradle.properties) (and [`VERSION`](VERSION)) when you publish a new release, then tag (for example `v0.2.0`).
+[`VERSION`](VERSION) at the repo root is the source of truth, and `version` in
+[`gradle.properties`](gradle.properties) has to match it — PRs fail the
+[`Validate plugin`](.github/workflows/validate.yml) check if the two disagree.
+
+The repo has no release tags yet, so merging this change to `main` cuts the first GitHub
+Release, `v0.2.0`, from the version already in those files. From then on, **every merge to
+`main` must bump both files**; [`.github/workflows/release.yml`](.github/workflows/release.yml)
+fails when the version is not newer than the latest `vX.Y.Z` tag, and it creates the tag and
+the GitHub Release (with the built plugin zip attached) when it is.
 
 ## License
 
