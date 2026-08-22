@@ -34,24 +34,33 @@ jobs:
         run: |
           set -euo pipefail
           FILE_VERSION=$(tr -d '[:space:]' < VERSION)
-          if ! printf '%s' "$FILE_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+          if [[ ! "$FILE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::VERSION '$FILE_VERSION' is not X.Y.Z — refusing to release"
             exit 1
           fi
-          GRADLE_VERSION=$(grep -E '^version[[:space:]]*=' gradle.properties | sed -E 's/^version[[:space:]]*=[[:space:]]*//')
+          GRADLE_LINE=$(grep -E '^version[[:space:]]*=' gradle.properties || true)
+          if [ -z "$GRADLE_LINE" ]; then
+            echo "::error::gradle.properties has no 'version =' line — cannot cross-check VERSION"
+            exit 1
+          fi
+          GRADLE_VERSION=$(printf '%s' "$GRADLE_LINE" | sed -E 's/^version[[:space:]]*=//' | tr -d '[:space:]')
           if [ "$FILE_VERSION" != "$GRADLE_VERSION" ]; then
             echo "::error::VERSION ($FILE_VERSION) does not match gradle.properties version ($GRADLE_VERSION) — sync them before releasing"
             exit 1
           fi
           echo "version=$FILE_VERSION" >> "$GITHUB_OUTPUT"
 
+      # This only runs on push to main, so GITHUB_SHA is already the tip of main — there is
+      # no need to check that the commit is an ancestor of main, and --target below tags
+      # exactly this SHA.
       - name: Compare version against latest release tag
         id: release_gate
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          VERSION="${{ steps.version.outputs.version }}"
           git fetch --tags origin
-          LATEST=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -1)
+          LATEST=$(git tag -l | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
           if [ -z "$LATEST" ]; then
             echo "should_release=true" >> "$GITHUB_OUTPUT"
             echo "No prior release tag — v${VERSION} will be the first release"
@@ -72,36 +81,33 @@ jobs:
           echo "Version ${VERSION} is newer than ${LATEST} — proceeding with release"
 
       - name: Set up Node.js
-        if: steps.release_gate.outputs.should_release == 'true'
         uses: actions/setup-node@v5
         with:
           node-version: "24"
 
       # Gate the release on the same layout check PRs run, so a release can never ship a broken layout.
       - name: Validate plugin layout
-        if: steps.release_gate.outputs.should_release == 'true'
         run: node scripts/validate-jetbrains-plugin.mjs
 
       - name: Set up JDK
-        if: steps.release_gate.outputs.should_release == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Build plugin
-        if: steps.release_gate.outputs.should_release == 'true'
         run: ./gradlew buildPlugin --no-daemon
 
       - name: Verify plugin
-        if: steps.release_gate.outputs.should_release == 'true'
         run: ./gradlew verifyPlugin --no-daemon
 
       # buildPlugin names the zip after the plugin and its version, so find it rather than
-      # hardcoding the name.
+      # hardcoding the name — then make sure it is the version we are about to release and
+      # not a stale artifact from an earlier build.
       - name: Locate the built plugin zip
-        if: steps.release_gate.outputs.should_release == 'true'
         id: artifact
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
           ZIP=$(find build/distributions -maxdepth 1 -name '*.zip' | head -1)
@@ -109,16 +115,34 @@ jobs:
             echo "::error::No plugin zip found under build/distributions"
             exit 1
           fi
+          ZIP_NAME=$(basename "$ZIP")
+          case "$ZIP_NAME" in
+            *"$VERSION"*) ;;
+            *)
+              echo "::error::Built zip '$ZIP_NAME' does not carry version $VERSION — refusing to release a mismatched artifact"
+              exit 1
+              ;;
+          esac
           echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
 
       # --target creates the tag as part of the release, so a failure can't leave an orphan tag.
       - name: Create GitHub release
-        if: steps.release_gate.outputs.should_release == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          ZIP: ${{ steps.artifact.outputs.zip }}
         run: |
-          gh release create "v${{ steps.version.outputs.version }}" \
-            "${{ steps.artifact.outputs.zip }}" \
+          gh release create "v${VERSION}" \
+            "$ZIP" \
             --target "$GITHUB_SHA" \
-            --title "v${{ steps.version.outputs.version }}" \
+            --title "v${VERSION}" \
             --generate-notes
+
+      # If anything after the gate fails, a half-created release (and its tag) would block
+      # a retry of the same version, so remove it and let the next push start clean.
+      - name: Clean up a partial release
+        if: failure() && steps.release_gate.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: gh release delete "v${VERSION}" --yes --cleanup-tag || true
