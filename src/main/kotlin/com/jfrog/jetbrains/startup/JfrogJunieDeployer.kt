@@ -7,11 +7,10 @@ package com.jfrog.jetbrains.startup
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
-import com.intellij.ide.plugins.PluginManagerCore
+import com.intellij.ide.plugins.cl.PluginAwareClassLoader
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.diagnostic.logger
-import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
 import java.nio.file.Files
@@ -153,12 +152,11 @@ class JfrogJunieDeployer : ProjectActivity {
         name.removePrefix("jfrog-cli.conf.v").toIntOrNull() ?: -1
 
     private val pluginVersion: String
-        get() = PluginManagerCore.getPlugin(PluginId.getId(PLUGIN_ID))?.version ?: "dev"
+        get() = (javaClass.classLoader as? PluginAwareClassLoader)?.pluginDescriptor?.version ?: "dev"
 
     private companion object {
         val LOG = logger<JfrogJunieDeployer>()
         val DEPLOY_LOCK = Any()
-        const val PLUGIN_ID = "com.jfrog.jetbrains"
         const val SKILLS_RESOURCE = "junie/junie-skills.zip"
         const val MARKER_FILE = ".jfrog-plugin-version"
         const val PLATFORM_URL_PLACEHOLDER = "<JFROG_PLATFORM_URL>"
