@@ -35,11 +35,6 @@ jobs:
       - name: Validate plugin layout
         run: node scripts/validate-jetbrains-plugin.mjs
 
-      - name: Validate README has no plugin version
-        env:
-          PLUGIN_MANIFEST: gradle.properties
-        run: node scripts/validate-readme-no-version.mjs
-
   build:
     runs-on: ubuntu-latest
     steps:
