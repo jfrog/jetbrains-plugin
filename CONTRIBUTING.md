@@ -41,7 +41,7 @@ This downloads the pinned upstream tarball and replaces `.junie/skills/`. Commit
 
 - [ ] `node scripts/validate-jetbrains-plugin.mjs` passes.
 - [ ] `./gradlew buildPlugin` succeeds against a real IntelliJ Platform Gradle sync.
-- [ ] Version bumped in [`VERSION`](VERSION) (and the matching `version` in [`gradle.properties`](gradle.properties)) on **every** merge to `main`.
+- [ ] Version bumped in [`VERSION`](VERSION) and matched in [`gradle.properties`](gradle.properties) — required on every PR to `main`.
 - [ ] No secrets, credentials, or files under `**/local-cache/` committed.
 - [ ] If the skill tree changed: `pin` in `.github/scripts/sync-skills-vendor.json` matches the upstream tag the new tree was generated from.
 - [ ] Smoke-test: install the `buildPlugin` zip in a real IDE, confirm the JFrog skills + JFrog MCP surface in Junie.
