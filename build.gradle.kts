@@ -1,3 +1,4 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
@@ -45,6 +46,7 @@ intellijPlatform {
     pluginVerification {
         ides {
             current()
+            create(IntelliJPlatformType.IntellijIdeaUltimate, "2026.2")
         }
     }
 

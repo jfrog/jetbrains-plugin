@@ -156,7 +156,7 @@ It requires four repository secrets — add them under **Settings → Secrets an
 **Every merge to `main` must bump both files.** [`.github/workflows/release.yml`](.github/workflows/release.yml)
 fails when the version is not newer than the latest `vX.Y.Z` tag, and it creates the tag and
 the GitHub Release (with the built plugin zip attached) when it is. With no tags yet, the first
-run on `main` publishes `v0.2.0` from the version already in those files.
+run on `main` publishes `v0.2.2` from the version already in those files.
 
 ## License
 
