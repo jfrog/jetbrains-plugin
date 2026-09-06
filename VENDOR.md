@@ -6,8 +6,11 @@ The skill packages under `.junie/skills/` are vendored from **[jfrog/jfrog-skill
 | --- | --- |
 | **Repository** | https://github.com/jfrog/jfrog-skills |
 | **Pinned release** | see `pin` in [`.github/scripts/sync-skills-vendor.json`](.github/scripts/sync-skills-vendor.json) |
+| **Plugin version** | see `version` in [`gradle.properties`](gradle.properties), mirrored by [`VERSION`](VERSION) |
 
 Included directories: `jfrog/`, `jfrog-package-safety-and-download/`, `jfrog-ai-catalog-skills/`, `jfrog-mcp-management/`, `jfrog-reference-architecture/`, `jfrog-setup-package-managers/` (as of the pinned release).
+
+The README deliberately omits release numbers. The Gradle property and GitHub tags/releases are the authoritative plugin-version sources; the vendor configuration is the authoritative skills pin.
 
 Unlike the other JFrog plugin repos, upstream's `skills/` is renamed to `.junie/skills/` on vendor - that's Junie's own Agent Skills discovery convention, not a JFrog-specific choice.
 

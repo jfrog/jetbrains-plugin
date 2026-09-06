@@ -22,7 +22,7 @@ This plugin targets **Junie**, JetBrains' native coding agent, specifically. Int
 - A JetBrains IDE on **2025.2+** with Junie installed.
 - **`JFROG_PLATFORM_URL`** environment variable set to your JFrog instance (e.g. `mycompany.jfrog.io`). The plugin uses it to fill in the JFrog MCP server URL.
 - **Node.js** (≥ 18) with `npx` on your `PATH` (used by Agent Guard).
-- **Skill runtime** (when using the skills) — `jf` CLI, `jq`, and `curl` on `PATH`, plus a configured JFrog instance. For the minimum versions, see the upstream skills [`Requirements`](https://github.com/jfrog/jfrog-skills/blob/v0.20.0/README.md#requirements).
+- **Skill runtime** (when using the skills) — `jf` CLI, `jq`, and `curl` on `PATH`, plus a configured JFrog instance. For the minimum versions, see the upstream skills [`Requirements`](https://github.com/jfrog/jfrog-skills/blob/main/README.md#requirements).
 - **JFrog Platform access** (optional) — the Agent Guard feature needs the AI Catalog entitlement on your subscription.
 
 ## Installation
@@ -92,7 +92,7 @@ Once the IDE has started (and OAuth is completed on first use), interact with th
 
 The `.junie/skills/` tree is vendored from [`jfrog/jfrog-skills`](https://github.com/jfrog/jfrog-skills) at the version pinned in [`.github/scripts/sync-skills-vendor.json`](.github/scripts/sync-skills-vendor.json). To pull a newer upstream release into this repo:
 
-1. Bump `pin` in `.github/scripts/sync-skills-vendor.json` to the new tag (e.g. `v0.26.0`).
+1. Bump `pin` in `.github/scripts/sync-skills-vendor.json` to the new upstream tag.
 2. Run the sync script from the repo root:
 
    ```bash
@@ -101,8 +101,7 @@ The `.junie/skills/` tree is vendored from [`jfrog/jfrog-skills`](https://github
 
    It downloads the pinned tarball from `codeload.github.com`, extracts it, and replaces `.junie/skills/`.
 3. Bump `version` in [`gradle.properties`](gradle.properties) (and [`VERSION`](VERSION)) so the published plugin — and the startup deployer's version marker — pick up the new bundle.
-4. Update the pinned-version link in [Prerequisites](#prerequisites) so the skill runtime requirements point at the new tag.
-5. Commit the pin bump, the regenerated `.junie/skills/` tree, and the version bump together, and open a PR.
+4. Commit the pin bump, the regenerated `.junie/skills/` tree, and the version bump together, and open a PR.
 
 See [VENDOR.md](VENDOR.md) for the full picture.
 
@@ -147,9 +146,9 @@ It requires four repository secrets — add them under **Settings → Secrets an
 
 > **The first version must be uploaded manually** at [plugins.jetbrains.com](https://plugins.jetbrains.com/) → **Upload plugin** (JetBrains reviews the first submission). Token/CI publishing only works after the plugin listing exists.
 
-## Versioning
+## Releasing
 
-Bump `version` in [`gradle.properties`](gradle.properties) (and [`VERSION`](VERSION)) when you publish a new release, then tag (for example `v0.2.0`).
+Bump `version` in [`gradle.properties`](gradle.properties) (and [`VERSION`](VERSION)) when you publish a new release, then tag on GitHub. See [`.github/workflows/release.yml`](.github/workflows/release.yml).
 
 ## License
 
