@@ -22,7 +22,7 @@ When the upstream repo publishes a new release, refresh the vendored tree via a 
 
 1. Bumps `pin` in [`.github/scripts/sync-skills-vendor.json`](.github/scripts/sync-skills-vendor.json) to the new tag.
 2. Re-syncs and commits the refreshed `.junie/skills/` tree.
-3. Bumps `version` in [`gradle.properties`](gradle.properties) so the published plugin version reflects the new skills bundle.
+3. Bumps [`VERSION`](VERSION) and the matching `version` in [`gradle.properties`](gradle.properties) so the published plugin version reflects the new skills bundle.
 
 To regenerate the tree locally before opening the PR:
 

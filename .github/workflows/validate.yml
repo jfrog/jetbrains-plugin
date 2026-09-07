@@ -21,7 +21,16 @@ jobs:
         run: |
           set -euo pipefail
           FILE_VERSION=$(tr -d '[:space:]' < VERSION)
-          GRADLE_VERSION=$(grep -E '^version[[:space:]]*=' gradle.properties | sed -E 's/^version[[:space:]]*=[[:space:]]*//')
+          if [[ ! "$FILE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::VERSION '$FILE_VERSION' is not X.Y.Z"
+            exit 1
+          fi
+          GRADLE_LINE=$(grep -E '^version[[:space:]]*=' gradle.properties || true)
+          if [ -z "$GRADLE_LINE" ]; then
+            echo "::error::gradle.properties has no 'version =' line — cannot cross-check VERSION"
+            exit 1
+          fi
+          GRADLE_VERSION=$(printf '%s' "$GRADLE_LINE" | sed -E 's/^version[[:space:]]*=//' | tr -d '[:space:]')
           if [ "$FILE_VERSION" != "$GRADLE_VERSION" ]; then
             echo "::error::VERSION ($FILE_VERSION) does not match gradle.properties version ($GRADLE_VERSION) — sync them"
             exit 1

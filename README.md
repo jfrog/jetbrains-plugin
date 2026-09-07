@@ -100,7 +100,7 @@ The `.junie/skills/` tree is vendored from [`jfrog/jfrog-skills`](https://github
    ```
 
    It downloads the pinned tarball from `codeload.github.com`, extracts it, and replaces `.junie/skills/`.
-3. Bump `version` in [`gradle.properties`](gradle.properties) (and [`VERSION`](VERSION)) so the published plugin — and the startup deployer's version marker — pick up the new bundle.
+3. Bump [`VERSION`](VERSION) and the matching `version` in [`gradle.properties`](gradle.properties) so the published plugin — and the startup deployer's version marker — pick up the new bundle.
 4. Commit the pin bump, the regenerated `.junie/skills/` tree, and the version bump together, and open a PR.
 
 See [VENDOR.md](VENDOR.md) for the full picture.
@@ -148,7 +148,14 @@ It requires four repository secrets — add them under **Settings → Secrets an
 
 ## Releasing
 
-Bump `version` in [`gradle.properties`](gradle.properties) (and [`VERSION`](VERSION)) when you publish a new release, then tag on GitHub. See [`.github/workflows/release.yml`](.github/workflows/release.yml).
+[`VERSION`](VERSION) at the repo root is the source of truth, and `version` in
+[`gradle.properties`](gradle.properties) has to match it — PRs fail the
+[`Validate plugin`](.github/workflows/validate.yml) check if the two disagree.
+
+**Every merge to `main` must bump both files.** [`.github/workflows/release.yml`](.github/workflows/release.yml)
+fails when the version is not newer than the latest `vX.Y.Z` tag, and it creates the tag and
+the GitHub Release (with the built plugin zip attached) when it is. If no release tags exist,
+the first merge publishes the version already in those files.
 
 ## License
 
