@@ -87,7 +87,6 @@ Once the IDE has started (and OAuth is completed on first use), interact with th
 
 - **`node` / `npx` / `jf` "command not found", or an installed MCP shows red in Junie.** Junie doesn't resolve your login-shell `PATH`, so bare commands (and a bare `"command": "npx"` entry) fail. Either launch the IDE from a terminal (e.g. `idea .`) so it inherits `PATH`, or ensure Node.js and the `jf` CLI are on a system `PATH`. The `jfrog-mcp-management` skill mitigates this by resolving absolute tool paths and writing MCP entries with an absolute `npx` path.
 - **Where are the MCP servers / tools?** In the IDE: **Settings → Tools → Junie → MCP Settings**. There is no interactive `/mcp` command in the IDE (typing `/mcp` in the Junie chat is treated as plain text).
-- **Junie warns that too many MCP tools are enabled** (e.g. *"100 MCP tools are enabled — some models may fail or degrade when more than 40 tools are exposed"*). The JFrog MCP server exposes a broad tool set; turn off MCP servers or individual tools you aren't using under **Settings → Tools → Junie → MCP Settings** to bring the count down. The bundled **skills** don't add to this — only their short descriptions stay in context, and a skill's body loads only when invoked.
 - **Agent Guard keeps asking for a JFrog project key.** That's by design — it never guesses. Set the `JF_PROJECT` environment variable to skip the prompt.
 - For platform-side MCP issues, see the [JFrog MCP Registry troubleshooting guide](https://docs.jfrog.com/ai-ml/docs/mcp-registry-troubleshooting).
 
