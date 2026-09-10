@@ -1,6 +1,6 @@
 import org.jetbrains.intellij.platform.gradle.extensions.intellijPlatform
 
-rootProject.name = "jetbrains-plugin"
+rootProject.name = "jetbrains-jfrog-agents-plugin"
 
 pluginManagement {
     plugins {
