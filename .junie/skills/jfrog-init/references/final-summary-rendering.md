@@ -74,7 +74,8 @@ has always surfaced, just worded without "pending":
       connected/authorized and you can use them, or you've already used one this
       walk.
     - Else, if a `jfrog` tool is callable without starting a sign-in, **make one
-      cheap read-only call**: returns data → **✅**; `401`/`needsAuth` → ⚠️.
+      cheap read-only call**: returns data → **✅**; any other result
+      (`401`/`needsAuth`, an error, or a timeout) → ⚠️.
     - **⚠️ `enabled — sign in to use it`** (the default) — no `jfrog` tool callable
       this turn, or confirming would need a sign-in. (A `401` challenge or a
       merely-listed tool is never ✅ **on its own**.)

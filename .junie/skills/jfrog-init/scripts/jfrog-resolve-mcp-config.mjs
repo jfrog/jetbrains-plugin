@@ -99,17 +99,23 @@ import { isMainModule } from "./lib/jf.mjs";
 const VALID_HARNESSES = new Set(["claude", "cursor", "vscode", "codex", "opencode", "kiro", "kiro-cli", "devin", "junie"]);
 
 // Env-free Junie detection. Junie's IDE panel runs shell steps without the
-// JUNIE_* vars, so we also treat "this skill lives under a ~/.junie/ dir" as
-// Junie. Only the copy Junie installed matches; other harnesses run elsewhere.
+// JUNIE_* vars, so we also treat "this skill lives under the user's own
+// ~/.junie/ dir" as Junie - anchored to the home directory so an unrelated
+// `.junie` segment elsewhere in the path can't be mistaken for a Junie install.
+// Installs outside ~/.junie/ aren't auto-detected - set JFROG_INIT_HARNESS=junie.
 function installedUnderJunie() {
-  const under = /[\\/]\.junie[\\/]/;
+  const home = process.env.HOME || process.env.USERPROFILE || homedir();
+  if (!home) return false;
+  const norm = (p) => (p || "").replace(/\\/g, "/").replace(/\/+$/, "");
+  const junieRoot = norm(home) + "/.junie/";
   let here = "";
   try {
     here = fileURLToPath(import.meta.url);
   } catch {
     // import.meta.url unavailable — fall back to CLAUDE_SKILL_DIR only.
   }
-  return under.test(here) || under.test(process.env.CLAUDE_SKILL_DIR || "");
+  const underJunieHome = (p) => (norm(p) + "/").startsWith(junieRoot);
+  return underJunieHome(here) || underJunieHome(process.env.CLAUDE_SKILL_DIR);
 }
 
 // One entry per harness, in priority order (see doc comment above) — used

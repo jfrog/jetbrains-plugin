@@ -323,8 +323,8 @@ Summary's **JFrog MCP Plugin** line, because it is the only signal tied to
     **after the Final Summary**.
   - If the user accepts, trigger the JFrog MCP's own sign-in via your harness's
     MCP auth, then re-check:
-    - tools now visible → connected
-    - still not visible → reload the window (don't re-ask an already signed-in user)
+      - tools now visible → connected
+      - still not visible → reload the window (don't re-ask an already signed-in user)
   - **Junie exception** — you **can't** trigger it yourself (the `jfrog` tools
     aren't exposed to your turn); tell the user instead, per surface:
     - **Junie CLI** → run `/mcp`, **Authorize** the `jfrog` entry, finish the
