@@ -40,7 +40,7 @@ editor UI or `mcp.json`, so it falls through to the Fallback section.
 | OpenCode | `OPENCODE` | [harness-opencode.md](harness-opencode.md) |
 | Devin | Your system prompt / system instructions identify you as **Devin** (Devin Desktop / Devin Local / Devin CLI / Cognition). | [harness-devin.md](harness-devin.md) |
 | Kiro | Your system prompt / system instructions identify you as **Kiro** (Kiro IDE / `kiro-cli`). | [harness-kiro.md](harness-kiro.md) |
-| VS Code editor | `TERM_PROGRAM=vscode` **and no `CURSOR_*` var is set** **and no `OPENCODE` var is set** **and no `CODEX_*` var is set** **and no `CLAUDECODE`/`CLAUDE_CODE_ENTRYPOINT` var is set** **and no `GEMINI_CLI` / `GOOSE_TERMINAL` / `COPILOT_CLI` var is set** **and** your system prompt / system instructions do **not** identify you as Devin or Kiro | [harness-vscode.md](harness-vscode.md) |
+| VS Code editor | `TERM_PROGRAM=vscode` **and `TERM_PROGRAM` is not `kiro`** **and no `CURSOR_*` var is set** **and no `OPENCODE` var is set** **and no `CODEX_*` var is set** **and no `CLAUDECODE`/`CLAUDE_CODE_ENTRYPOINT` var is set** **and no `GEMINI_CLI` / `GOOSE_TERMINAL` / `COPILOT_CLI` var is set** **and** your system prompt / system instructions do **not** identify you as Devin or Kiro | [harness-vscode.md](harness-vscode.md) |
 | anything else | none of the above | **Fallback** section below — no harness file exists |
 
 Once you know your harness, use ONLY these fields from its file: `Config files`
@@ -86,7 +86,12 @@ case; harnesses whose config is not JSON differ — e.g. **Codex** uses TOML wit
 ```
 
 - `"type": "stdio"` always — never `"http"`, `"sse"`, or a top-level `"url"`
-  (those bypass the Agent Guard).
+  (those bypass the Agent Guard) — **unless your harness file defines a
+  "Gateway entry shape" and `--inspect` returned `routing.target: "gateway"`
+  with a non-empty `routing.url`.**
+  That entry points at the tenant's own JFrog Platform, which applies the same
+  approval and tool policy the Agent Guard would, so it is not a bypass. Every
+  other remote entry remains forbidden.
 - `--yes` and `--registry <URL>` MUST precede `@jfrog/agent-guard` in `args`.
 - `--server <ID>` in `args` is conditional: drop both array elements only on
   the URL+token env path (`JFROG_URL`+`JFROG_ACCESS_TOKEN`, or legacy
