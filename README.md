@@ -4,6 +4,8 @@ JFrog plugin for JetBrains IDEs (IntelliJ IDEA, PyCharm, WebStorm, GoLand, Rider
 
 > **Status:** the JFrog skills bundle and the JFrog (remote) MCP server are delivered to Junie automatically on IDE startup.
 
+> **Preview Notice:** This Plugin is in preview and licensed under the Apache License 2.0. For clarity: This software is provided "as-is" without warranty of any kind, and without support obligations or service level commitments. Behavior, APIs, conventions, and structure may change without notice between releases. JFrog makes no guarantees of backward compatibility during the preview release cycle. Use in production environments is at your own risk.
+
 ## Scope
 
 This plugin targets **Junie**, JetBrains' native coding agent, specifically. IntelliJ's AI Assistant chat also lets you drive external agents (Claude Agent, Codex, Gemini CLI) via the Agent Client Protocol — those are out of scope here and manage their own configuration independently. If you want JFrog tooling in one of those, install [`claude-plugin`](https://github.com/jfrog/claude-plugin) / [`codex-plugin`](https://github.com/jfrog/codex-plugin) into that tool directly.
