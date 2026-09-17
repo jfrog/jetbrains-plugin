@@ -87,7 +87,9 @@ Once the IDE has started (and OAuth is completed on first use), interact with th
 
 ## Troubleshooting
 
-- **`node` / `npx` / `jf` "command not found", or an installed MCP shows red in Junie.** Junie doesn't resolve your login-shell `PATH`, so bare commands (and a bare `"command": "npx"` entry) fail. Either launch the IDE from a terminal (e.g. `idea .`) so it inherits `PATH`, or ensure Node.js and the `jf` CLI are on a system `PATH`. The `jfrog-mcp-management` skill mitigates this by resolving absolute tool paths and writing MCP entries with an absolute `npx` path.
+- **⚠️ Junie can't find a command (e.g. `node` / `npx` / `jf` "command not found"), or an installed MCP shows red.** Junie may run shell commands in a shell that doesn't see your full `PATH`, so tools installed via nvm or Homebrew can be missing. This is mainly a **macOS** issue — fix it by symlinking the tools into a directory already on the `PATH` (on most setups `/usr/local/bin` works), then restart the IDE. For example, with Homebrew: `sudo ln -sf /opt/homebrew/bin/{node,npm,npx,jf} /usr/local/bin/` (add other tools as needed). With a version manager like nvm whose paths change per version, first give it a stable path (e.g. nvm's `NVM_SYMLINK_CURRENT`) and symlink from that.
+
+  On **Linux/Windows** the IDE normally inherits your `PATH`; if a tool is still missing, add its folder to your OS user `PATH` (Linux: `~/.profile`; Windows: *Edit environment variables for your account*) and restart the IDE.
 - **Where are the MCP servers / tools?** In the IDE: **Settings → Tools → Junie → MCP Settings**. There is no interactive `/mcp` command in the IDE (typing `/mcp` in the Junie chat is treated as plain text).
 - **Agent Guard keeps asking for a JFrog project key.** That's by design — it never guesses. Set the `JF_PROJECT` environment variable to skip the prompt.
 - For platform-side MCP issues, see the [JFrog MCP Registry troubleshooting guide](https://docs.jfrog.com/ai-ml/docs/mcp-registry-troubleshooting).
