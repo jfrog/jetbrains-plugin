@@ -58,8 +58,8 @@ placeholder pattern anywhere in the file, it calls
 
 This is the ONLY place `/jfrog-init` writes to the plugin-owned
 `mcp.json` for these three harnesses. Everything else in Step 5 is
-read-only for them — with two further exceptions: OpenCode and Kiro CLI
-(see below).
+read-only for them — with three further exceptions: OpenCode, Kiro CLI,
+and Junie (see below).
 
 **OpenCode is structurally different.** The JFrog OpenCode plugin
 (`@jfrog/opencode-jfrog-plugin`) ships no static `mcp.json` of its
@@ -211,8 +211,9 @@ actually enabled on the JPD is a separate, network check (see
     `jf config`**) or the file isn't strict JSON (fix: **paste the
     entry in manually** — run `jfrog-reinstall-jfrog-plugin.mjs` for
     the exact JSON to paste and where).
-  - **(Kiro CLI)** Could not create or update `~/.kiro/settings/mcp.json`
-    — no plugin ships this file, so there's nothing to reinstall. The
+  - **(Kiro CLI / Junie)** Could not create or update the tool's own global
+    MCP config (`~/.kiro/settings/mcp.json` for Kiro CLI, `~/.junie/mcp/mcp.json`
+    for Junie) — no plugin ships this file, so there's nothing to reinstall. The
     detail names the actual cause. Fix: **correct the file or
     parent-directory permissions/path**, then re-run.
   - (Exit 3 only) Harness could not be detected, or the config file is
@@ -228,7 +229,7 @@ actually enabled on the JPD is a separate, network check (see
     or any other reference doc over it.
 - **Exit 2 (`ask`)** → the one outcome that still blocks: a fix needs
   the jf server-id (placeholder substitution on Cursor/VS Code/Claude
-  Code, or the initial write on OpenCode/Kiro CLI) but it's ambiguous —
+  Code, or the initial write on OpenCode/Kiro CLI/Junie) but it's ambiguous —
   every step from here on needs a resolved server-id, so there's nothing
   to skip ahead to. **Stop and read `references/server-picker.md` in
   full**, then re-invoke with the pick as the positional argument.
