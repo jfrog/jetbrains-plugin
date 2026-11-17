@@ -43,6 +43,7 @@ The plugin materializes its assets into your **global Junie home** on IDE startu
 | --- | --- | --- |
 | `~/.junie/skills/` | The vendored `jfrog-skills` bundle | Refreshed when the plugin version changes; other (non-JFrog) skills in the folder are left untouched. |
 | `~/.junie/mcp/mcp.json` | A `jfrog` remote MCP server entry | **Merged**, not clobbered — Junie's own `idea` entry and any other servers survive. The URL is resolved from `JFROG_PLATFORM_URL`, falling back to your JFrog CLI config. |
+| `~/.junie/jfrog/` | The vendored jfrog-agent-hooks `modules/` and the plugin version | On each project open the plugin starts its install telemetry with `node` in the background (skipped quietly when `node` isn't found): one small event at install, on update, and at most once a day, the same as the other JFrog coding-agent plugins. Turn it off with `JF_AGENT_TELEMETRY_DISABLE=1` or `DO_NOT_TRACK=1` in the IDE's environment, or `"telemetry": { "enabled": false }` in `~/.jfrog/agents-conf.json`. |
 
 Junie discovers these by convention (skills from `.junie/skills/`, MCP servers from `.junie/mcp/mcp.json`). The first JFrog MCP call in Junie triggers a one-time browser **OAuth** login.
 

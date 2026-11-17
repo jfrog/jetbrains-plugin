@@ -31,3 +31,14 @@ node .github/scripts/sync-skills.mjs
 ```
 
 The script reads its sibling [`sync-skills-vendor.json`](.github/scripts/sync-skills-vendor.json), downloads the pinned upstream tarball from `codeload.github.com` (public `jfrog/jfrog-skills`), and replaces each destination listed in `mappings` (today: `skills` &rarr; `.junie/skills`).
+
+# Vendored hooks modules
+
+The `modules/` tree at the repo root is vendored from **jfrog-agent-hooks** by its `sync-plugins.yml` workflow: each `jfrog-agent-hooks/v*` release tag opens a sync pull request here. Never edit or hand-copy it: the sync stamps the hooks version, and an unstamped copy reports `0.0.0`, which install telemetry skips.
+
+| | |
+| --- | --- |
+| **Pinned release** | see `pin` in `.github/scripts/sync-modules-vendor.json` (the first sync creates it) |
+| **Plugin version** | not bumped by the sync (it bumps only JSON files): bump [`VERSION`](VERSION) and `gradle.properties` by hand when releasing, as for the skills |
+
+At build time the tree is zipped into the plugin jar (`junie/junie-modules.zip`). On project open, [`JfrogJunieDeployer`](src/main/kotlin/com/jfrog/jetbrains/startup/JfrogJunieDeployer.kt) unpacks it to `~/.junie/jfrog/modules/`, writes the plugin version to `~/.junie/jfrog/.jetbrains-plugin/plugin.json`, and starts `modules/jetbrains-session-start.mjs` with `node` for install telemetry.
