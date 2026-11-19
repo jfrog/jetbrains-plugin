@@ -9,6 +9,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.Path
 
 class JfrogDeployLogicTest {
 
@@ -122,5 +125,43 @@ class JfrogDeployLogicTest {
         val jfrog = JsonParser.parseString(out).asJsonObject
             .getAsJsonObject("mcpServers").getAsJsonObject("jfrog")
         assertEquals("https://acme.jfrog.io/mcp", jfrog.get("url").asString)
+    }
+
+    // --- findNode / nodeFallbackDirs ---
+
+    private fun tempDir(): Path = Files.createTempDirectory("jfrog-node").also { it.toFile().deleteOnExit() }
+
+    private fun dirWithNode(): Path = tempDir().also { dir ->
+        dir.resolve("node").toFile().apply { writeText(""); setExecutable(true) }
+    }
+
+    @Test
+    fun findNode_firstPathDirWithNodeWins() {
+        val empty = tempDir()
+        val onPath = dirWithNode()
+        val pathEnv = listOf(empty, onPath).joinToString(File.pathSeparator)
+        assertEquals(onPath.resolve("node"), JfrogDeployLogic.findNode(pathEnv, listOf(dirWithNode()), isWindows = false))
+    }
+
+    @Test
+    fun findNode_fallsBackWhenPathHasNone() {
+        val fallback = dirWithNode()
+        assertEquals(fallback.resolve("node"), JfrogDeployLogic.findNode("", listOf(tempDir(), fallback), isWindows = false))
+    }
+
+    @Test
+    fun findNode_nullWhenNowhere() {
+        assertNull(JfrogDeployLogic.findNode(tempDir().toString(), listOf(tempDir()), isWindows = false))
+    }
+
+    @Test
+    fun nodeFallbackDirs_newestNvmVersionFirst() {
+        val home = tempDir()
+        for (v in listOf("v9.11.2", "v22.1.0", "v20.10.0")) {
+            Files.createDirectories(home.resolve(".nvm/versions/node/$v/bin"))
+        }
+        val nvm = JfrogDeployLogic.nodeFallbackDirs(home, isWindows = false)
+            .filter { it.startsWith(home.resolve(".nvm")) }
+        assertEquals(listOf("v22.1.0", "v20.10.0", "v9.11.2"), nvm.map { it.parent.fileName.toString() })
     }
 }

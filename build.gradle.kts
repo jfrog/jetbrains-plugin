@@ -26,9 +26,19 @@ val bundleJunieSkills by tasks.registering(Zip::class) {
     destinationDirectory.set(layout.buildDirectory.dir("tmp/junie-assets"))
 }
 
+// Same for the jfrog-agent-hooks modules/ tree (synced, see VENDOR.md):
+// JfrogJunieDeployer unpacks it to ~/.junie/jfrog/modules/ and runs its
+// telemetry entry point with node on project open.
+val bundleJunieModules by tasks.registering(Zip::class) {
+    from(layout.projectDirectory.dir("modules")) { into("modules") }
+    archiveFileName.set("junie-modules.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("tmp/junie-assets"))
+}
+
 tasks.processResources {
-    dependsOn(bundleJunieSkills)
+    dependsOn(bundleJunieSkills, bundleJunieModules)
     from(bundleJunieSkills) { into("junie") }
+    from(bundleJunieModules) { into("junie") }
 }
 
 intellijPlatform {
