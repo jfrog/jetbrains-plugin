@@ -91,7 +91,7 @@ Once the IDE has started (and OAuth is completed on first use), interact with th
 
   On **Linux/Windows** the IDE normally inherits your `PATH`; if a tool is still missing, add its folder to your OS user `PATH` (Linux: `~/.profile`; Windows: *Edit environment variables for your account*) and restart the IDE.
 - **Where are the MCP servers / tools?** In the IDE: **Settings → Tools → Junie → MCP Settings**. There is no interactive `/mcp` command in the IDE (typing `/mcp` in the Junie chat is treated as plain text).
-- **Agent Guard keeps asking for a JFrog project key.** That's by design — it never guesses. Set the `JF_PROJECT` environment variable to skip the prompt.
+- **Agent Guard keeps asking for a JFrog project key.** That's by design — it never guesses. Run `/jfrog-init` to set the AI Governance server and project.
 - For platform-side MCP issues, see the [JFrog MCP Registry troubleshooting guide](https://docs.jfrog.com/ai-ml/docs/mcp-registry-troubleshooting).
 
 ## Updating the vendored skills
